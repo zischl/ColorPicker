@@ -5,6 +5,8 @@ import colorsys
 from TimeIt import TimeIT
 from numba import jit
 import customtkinter
+import math
+from functools import cache
 
 class TextPropertyManager(customtkinter.CTkEntry):
     def __init__(self, master, value, variable, root, **kwargs):
@@ -15,124 +17,11 @@ class TextPropertyManager(customtkinter.CTkEntry):
         
         
     def update_attribute(self, event):
-        val = self.get()
-        self.root.change_col(val)
+        val = int(self.get())
+        self.root.setColorCycle(val)
         self.variable.set(val)
         
-class ColorPicker(tk.Toplevel):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-        self.size = 300
-        self.center = self.size/2
-        self.geometry(f"{self.size}x600+500+200")
-        self.overrideredirect(True)
-        self.pack_propagate(True)
-        
-        self.hue = tk.IntVar()
-        self.r = tk.IntVar()
-        self.g = tk.IntVar()
-        self.b = tk.IntVar()
-        self.saturation = tk.IntVar()
-        self.lightness = tk.IntVar()
-        self.value = tk.IntVar()
-        self.hex_code = tk.StringVar()
-        self.rgb = tk.StringVar()
-        self.hsl = tk.StringVar()
-        self.hsv = tk.StringVar()
-        
-        self.color_cycle = self.compute_color_cycle(1200)
-        self.color_cycle = self.color_cycle.resize((300, 300), Image.LANCZOS)
-        self.color_cycle_img = ImageTk.PhotoImage(self.color_cycle)
-
-        self.gradient = self.compute_gradient(136, 0)
-        self.gradient_img = ImageTk.PhotoImage(self.gradient)
-        
-        self.gradient_line = self.compute_h_line(50, 50)
-        self.gradient_line_img = ImageTk.PhotoImage(self.gradient_line)
-        
-        self.colors_canvas = tk.Canvas(self, bg="#181818", highlightthickness=0, width=self.size, height=self.size)
-        self.colors_canvas.pack(anchor='n', fill='x')
-        
-        self.canvas_color_cycle = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.color_cycle_img)
-        self.canvas_gradient = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_img)
-        self.canvas_gradient_line = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_line_img)
-        
-        self.colors_canvas.tag_bind(self.canvas_color_cycle ,"<Button-1>", self.primary_col)
-        self.colors_canvas.tag_bind(self.canvas_color_cycle ,"<B1-Motion>", self.primary_col)
-        self.colors_canvas.tag_bind(self.canvas_gradient ,"<Button-1>", self.secondary_col)
-        self.colors_canvas.tag_bind(self.canvas_gradient ,"<B1-Motion>", self.secondary_col)
-        
-        
-        self.attributes_frame = customtkinter.CTkFrame(self, height=200)
-        self.attributes_frame.pack(fill='x')
-        self.attributes_frame.grid_columnconfigure([0,1,2,3], weight=1)
-        
-        self.attribute_manager(self.attributes_frame, "R :", 0, [0,1], 10, self.r)
-        self.attribute_manager(self.attributes_frame, "G :", 1, [0,1], 10, self.g)
-        self.attribute_manager(self.attributes_frame, "B :", 2, [0,1], 10, self.b)
-        self.attribute_manager(self.attributes_frame, "Hue :", 0, [2,3], 10, self.hue)
-        self.attribute_manager(self.attributes_frame, "Saturation :", 1, [2,3], 10, self.saturation)
-        self.attribute_manager(self.attributes_frame, "Value :", 2, [2,3], 10, self.value)
-        self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
-        
-        self.attribute_manager(self.attributes_frame, "HSL :", 4, [0,1], 10, self.hsl)
-        self.attribute_manager(self.attributes_frame, "Hex :", 5, [0,1], 10, self.hex_code)
-        
-    def attribute_manager(self, master, text, row, column, pady, variable):
-        customtkinter.CTkLabel(master, text=text).grid(row=row, column=column[0], pady=(pady, 0))
-        TextPropertyManager(master, value=0, root=self, variable=variable).grid(row=row, column=column[1], pady=(pady, 0))
-        
-    
-    def hsv_to_rgb(self, h, s, v):
-        i = int(h * 6.0) 
-        f = (h * 6.0) - i  
-        p = v * (1.0 - s)
-        q = v * (1.0 - f * s)
-        t = v * (1.0 - (1.0 - f) * s)
-        i = i % 6
-
-        if i == 0: return v, t, p
-        if i == 1: return q, v, p
-        if i == 2: return p, v, t
-        if i == 3: return p, q, v
-        if i == 4: return t, p, v
-        return v, p, q  # i == 5
-
-
-    def compute_color_cycle(self, size, inner_radius=0.65, outer_radius=0.8):
-        center = size // 2
-        pixels = np.zeros((size, size, 4), dtype=np.uint8)
-
-        for y in range(size):
-            for x in range(size):
-                dx, dy = x - center, y - center
-                angle = np.arctan2(dy, dx)
-                radius = np.sqrt(dx**2 + dy**2) / center
-
-                if inner_radius <= radius <= outer_radius:
-                    hue = (angle + np.pi) / (2 * np.pi)
-                    r, g, b = self.hsv_to_rgb(hue, 1, 1)
-                    pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
-
-        return Image.fromarray(pixels, "RGBA")
-    
-    def compute_gradient(self, size, hue):
-        # center = size // 2
-        pixels = np.zeros((size, size, 4), dtype=np.uint8)
-        hue = hue/360
-        for y in range(size):
-            for x in range(size):
-                # dx, dy = x - center, y - center
-                # angle = np.arctan2(dy, dx)
-                # radius = np.sqrt(dx**2 + dy**2) / center
-                
-                # if 1 >= radius:
-                    
-                r, g, b = colorsys.hsv_to_rgb(hue, (x / (size - 1)), 1 - (y / (size - 1)))
-                pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
-
-        return Image.fromarray(pixels, "RGBA")
-    
+class ColorfulSliders():
     def compute_h_line(self, width, length):
         pixels = np.zeros((width, length, 4), dtype=np.uint8)
         hue = hue/360
@@ -177,14 +66,145 @@ class ColorPicker(tk.Toplevel):
                 pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
 
         return Image.fromarray(pixels, "RGBA")
+        
+class ColorPicker(tk.Toplevel):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.size = 300
+        self.center = self.size/2
+        self.geometry(f"{self.size}x600+500+200")
+        self.overrideredirect(True)
+        self.pack_propagate(True)
+        
+        self.hue = tk.IntVar()
+        self.r = tk.IntVar()
+        self.g = tk.IntVar()
+        self.b = tk.IntVar()
+        self.saturation = tk.IntVar()
+        self.lightness = tk.IntVar()
+        self.value = tk.IntVar()
+        self.hex_code = tk.StringVar()
+        self.rgb = tk.StringVar()
+        self.hsl = tk.StringVar()
+        self.hsv = tk.StringVar()
+        
+        self.color_cycle = self.compute_color_cycle(1200)
+        self.color_cycle = self.color_cycle.resize((300, 300), Image.LANCZOS)
+        self.color_cycle_img = ImageTk.PhotoImage(self.color_cycle)
+
+        self.gradient = self.compute_gradient(136, 0)
+        self.gradient_img = ImageTk.PhotoImage(self.gradient)
+        
+        # self.gradient_line = self.compute_h_line(50, 50)
+        # self.gradient_line_img = ImageTk.PhotoImage(self.gradient_line)
+        
+        self.colors_canvas = tk.Canvas(self, bg="#181818", highlightthickness=0, width=self.size, height=self.size)
+        self.colors_canvas.pack(anchor='n', fill='x')
+        
+        self.canvas_color_cycle = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.color_cycle_img)
+        self.canvas_gradient = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_img)
+        # self.canvas_gradient_line = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_line_img)
+        
+        self.gradient_pointer = self.colors_canvas.create_oval(self.center-10, self.center-10, self.center+10, self.center+10, fill='white', outline='gray', width=2)
+        self.color_cycle_pointer = self.colors_canvas.create_oval(0, 0, 20, 20, fill='white', outline='gray', width=2)
+        
+        self.colors_canvas.tag_bind(self.canvas_color_cycle ,"<Button-1>", self.primary_col)
+        self.colors_canvas.tag_bind(self.canvas_color_cycle ,"<B1-Motion>", self.primary_col)
+        self.colors_canvas.tag_bind(self.canvas_gradient ,"<Button-1>", self.secondary_col)
+        self.colors_canvas.tag_bind(self.canvas_gradient ,"<B1-Motion>", self.secondary_col)
+        
+        
+        self.attributes_frame = customtkinter.CTkFrame(self, height=200)
+        self.attributes_frame.pack(fill='x')
+        self.attributes_frame.grid_columnconfigure([0,1,2,3], weight=1)
+        
+        self.attribute_manager(self.attributes_frame, "R :", 0, [0,1], 10, self.r)
+        self.attribute_manager(self.attributes_frame, "G :", 1, [0,1], 10, self.g)
+        self.attribute_manager(self.attributes_frame, "B :", 2, [0,1], 10, self.b)
+        self.attribute_manager(self.attributes_frame, "Hue :", 0, [2,3], 10, self.hue)
+        self.attribute_manager(self.attributes_frame, "Saturation :", 1, [2,3], 10, self.saturation)
+        self.attribute_manager(self.attributes_frame, "Value :", 2, [2,3], 10, self.value)
+        self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
+        
+        self.attribute_manager(self.attributes_frame, "HSL :", 4, [0,1], 10, self.hsl)
+        self.attribute_manager(self.attributes_frame, "Hex :", 5, [0,1], 10, self.hex_code)
+        
+        self.setColorCycle(0)
+        
+    def attribute_manager(self, master, text, row, column, pady, variable):
+        customtkinter.CTkLabel(master, text=text).grid(row=row, column=column[0], pady=(pady, 0))
+        TextPropertyManager(master, value=0, root=self, variable=variable).grid(row=row, column=column[1], pady=(pady, 0))
+        
+    
+    def hsv_to_rgb(self, h, s, v):
+        i = int(h * 6.0) 
+        f = (h * 6.0) - i  
+        p = v * (1.0 - s)
+        q = v * (1.0 - f * s)
+        t = v * (1.0 - (1.0 - f) * s)
+        i = i % 6
+
+        if i == 0: return v, t, p
+        if i == 1: return q, v, p
+        if i == 2: return p, v, t
+        if i == 3: return p, q, v
+        if i == 4: return t, p, v
+        return v, p, q  # i == 5
+
+    def compute_color_cycle(self, size, inner_radius=0.65, outer_radius=0.8):
+        center = size // 2
+        self.pixels = np.zeros((size, size, 4), dtype=np.uint8)
+        for y in range(size):
+            for x in range(size):
+                dx, dy = x - center, y - center
+                angle = np.arctan2(dy, dx)
+                radius = np.sqrt(dx**2 + dy**2) / center
+
+                if inner_radius <= radius <= outer_radius:
+                    hue = (angle + np.pi) / (2 * np.pi)
+                    r, g, b = self.hsv_to_rgb(hue, 1, 1)
+                    self.pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
+        return Image.fromarray(self.pixels, "RGBA")
+    
+    def compute_gradient(self, size, hue):
+        # center = size // 2
+        pixels = np.zeros((size, size, 4), dtype=np.uint8)
+        hue = hue/360
+        for y in range(size):
+            for x in range(size):
+                # dx, dy = x - center, y - center
+                # angle = np.arctan2(dy, dx)
+                # radius = np.sqrt(dx**2 + dy**2) / center
+                
+                # if 1 >= radius:
+                    
+                r, g, b = colorsys.hsv_to_rgb(hue, (x / (size - 1)), 1 - (y / (size - 1)))
+                pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
+
+        return Image.fromarray(pixels, "RGBA")
             
     def primary_col(self, event):
-        col = self.color_cycle.getpixel([event.x,event.y])
+        print(event.x, event.y)
+        dx, dy = event.x - self.center, event.y - self.center
+        radius = math.sqrt(dx**2 + dy**2) / self.center
+        
+        c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
+        if 0.65 <= radius <= 0.8:
+            self.colors_canvas.move(self.color_cycle_pointer, event.x-c_pos[0]-10 , event.y-c_pos[1]-10)
+
+        elif radius > 0.8:
+            self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.8/radius))-c_pos[0]-10+self.center , (dy*(0.8/radius))-c_pos[1]-10+self.center)
+            
+        elif radius < 0.65:
+            self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.65/radius))-c_pos[0]-10+self.center , (dy*(0.65/radius))-c_pos[1]-10+self.center)    
+        
+        col = self.color_cycle.getpixel([c_pos[0]+10, c_pos[1]+10])
         hsv = colorsys.rgb_to_hsv(*(col[:3]))
-        if self.color_cycle:
-            hue = int(hsv[0]*360)
-            self.gradient = self.compute_gradient(136, hue)
-            self.gradient_img.paste(self.gradient)
+        
+        hue = int(hsv[0]*360)
+        self.gradient = self.compute_gradient(136, hue)
+        self.gradient_img.paste(self.gradient)
+        
         self.r.set(col[0])
         self.g.set(col[1])
         self.b.set(col[2])
@@ -192,11 +212,14 @@ class ColorPicker(tk.Toplevel):
         self.saturation.set(hsv[1])
         self.value.set(hsv[2])
         self.hex_code.set(self.RGBA_Hex(col))
+            
         # print(self.gradient.getpixel([134,0]))
         # print(event.x, event.y)
         
     def secondary_col(self, event):
         if event.x < 82 or event.y < 82 or event.x >= 218 or event.y >= 218: return
+        c_pos = self.colors_canvas.coords(self.gradient_pointer)
+        self.colors_canvas.move(self.gradient_pointer, event.x-c_pos[0]-10 , event.y-c_pos[1]-10)
         col = self.gradient.getpixel([event.x-82,event.y-82])
         # print(col)
         hsv = colorsys.rgb_to_hsv(*(col[:3]))
@@ -212,8 +235,33 @@ class ColorPicker(tk.Toplevel):
 
     def RGBA_Hex(self, RGBA):
         return "".join(val for val in [hex(value).removeprefix("0x") for value in RGBA[:-1]])
-
     
+    def setColorCycle(self, hue):
+        hue = hue/360
+        angle = (hue * (math.pi - (-math.pi))) + (-math.pi)
+        dx = 115 * math.cos(angle)
+        dy = 115 * math.sin(angle)
+        x = dx + self.center
+        y = dy + self.center
+        c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
+        self.colors_canvas.move(self.color_cycle_pointer, x-c_pos[0]-10 , y-c_pos[1]-10)
+
+    def change_col(self, hue):
+        self.setColorCycle(hue/360)
+        c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
+        col = self.color_cycle.getpixel([c_pos[0]+10, c_pos[1]+10])
+        hsv = colorsys.rgb_to_hsv(*(col[:3]))
+        
+        self.r.set(col[0])
+        self.g.set(col[1])
+        self.b.set(col[2])
+        self.hue.set(hsv[0]*360)
+        self.saturation.set(hsv[1])
+        self.value.set(hsv[2])
+        self.hex_code.set(self.RGBA_Hex(col))
+        
+        
+               
 class Main(tk.Tk):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -235,11 +283,9 @@ class Main(tk.Tk):
     #     sat = (X + 1) / 2  # Normalize from -1 to 1 -> 0 to 1
     #     val = (1 - Y) / 2  # Normalize from -1 to 1 -> 1 to 0
 
-    #     # Convert HSV to RGB (Vectorized)
     #     hsv_to_rgb = np.vectorize(colorsys.hsv_to_rgb)
     #     r, g, b = hsv_to_rgb(hue_normalized, sat, val)
 
-    #     # Stack into image format
     #     img_array = np.dstack([r * 255, g * 255, b * 255, np.full_like(r, 255)])  # RGBA
     #     return img_array.astype(np.uint8)
 
