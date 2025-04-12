@@ -22,11 +22,17 @@ class TextPropertyManager(customtkinter.CTkEntry):
         self.variable.set(val)
         
 class ColorfulSliders():
-    def compute_h_line(self, width, length):
+    def compute_h_line(width, length):
         pixels = np.zeros((width, length, 4), dtype=np.uint8)
-        hue = hue/360
         for y in range(width):
             for x in range(length):
+                if y < width/2 and x in range(0, 16-y): continue
+                if y == width/2 and x in range(y): continue
+                if y > width/2 and x in range(y): continue
+                if y < width/2 and x in range(length-16+y, length): continue
+                if y == width/2 and x in range(length-16, length): continue
+                if y > width/2 and x in range(length, length-y, -1): continue
+                hue = x / length
                 r, g, b = colorsys.hsv_to_rgb(hue, 1, 1)
                 pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
 
@@ -95,15 +101,15 @@ class ColorPicker(tk.Toplevel):
         self.gradient = self.compute_gradient(136, 0)
         self.gradient_img = ImageTk.PhotoImage(self.gradient)
         
-        # self.gradient_line = self.compute_h_line(50, 50)
-        # self.gradient_line_img = ImageTk.PhotoImage(self.gradient_line)
+        self.gradient_line = ColorfulSliders.compute_h_line(16, 150)
+        self.gradient_line_img = ImageTk.PhotoImage(self.gradient_line)
         
         self.colors_canvas = tk.Canvas(self, bg="#181818", highlightthickness=0, width=self.size, height=self.size)
         self.colors_canvas.pack(anchor='n', fill='x')
         
         self.canvas_color_cycle = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.color_cycle_img)
         self.canvas_gradient = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_img)
-        # self.canvas_gradient_line = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_line_img)
+        self.canvas_gradient_line = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_line_img)
         
         self.gradient_pointer = self.colors_canvas.create_oval(self.center-10, self.center-10, self.center+10, self.center+10, fill='white', outline='gray', width=2)
         self.color_cycle_pointer = self.colors_canvas.create_oval(0, 0, 20, 20, fill='white', outline='gray', width=2)
@@ -130,6 +136,7 @@ class ColorPicker(tk.Toplevel):
         self.attribute_manager(self.attributes_frame, "Hex :", 5, [0,1], 10, self.hex_code)
         
         self.setColorCycle(0)
+        self.setGradient((255,0,0))
         
     def attribute_manager(self, master, text, row, column, pady, variable):
         customtkinter.CTkLabel(master, text=text).grid(row=row, column=column[0], pady=(pady, 0))
@@ -217,6 +224,7 @@ class ColorPicker(tk.Toplevel):
         # print(event.x, event.y)
         
     def secondary_col(self, event):
+        print(event.x, event.y)
         if event.x < 82 or event.y < 82 or event.x >= 218 or event.y >= 218: return
         c_pos = self.colors_canvas.coords(self.gradient_pointer)
         self.colors_canvas.move(self.gradient_pointer, event.x-c_pos[0]-10 , event.y-c_pos[1]-10)
@@ -245,7 +253,26 @@ class ColorPicker(tk.Toplevel):
         y = dy + self.center
         c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
         self.colors_canvas.move(self.color_cycle_pointer, x-c_pos[0]-10 , y-c_pos[1]-10)
+        
+    def setGradient(self, rgb=False, s=False, v=False, size = 136):
+        if rgb:
+            rgb = [val/255 for val in rgb]
+            col = colorsys.rgb_to_hsv(*rgb)
 
+            x, y = col[1]*(size-1), (1 - col[2])*(size - 1)
+            print(x, y)
+            c_pos = self.colors_canvas.coords(self.gradient_pointer)
+            self.colors_canvas.move(self.gradient_pointer, x-c_pos[0]-10 +82 , y-c_pos[1]-10 +82)
+        else:
+            x, y = s*(size-1), (v-1)*(size-1)
+            print(x, y)
+            c_pos = self.colors_canvas.coords(self.gradient_pointer)
+            self.colors_canvas.move(self.gradient_pointer, x-c_pos[0]-10 , y-c_pos[1]-10)
+
+        hue = col[0]*360
+        self.gradient = self.compute_gradient(136, hue)
+        self.gradient_img.paste(self.gradient)
+        
     def change_col(self, hue):
         self.setColorCycle(hue/360)
         c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
