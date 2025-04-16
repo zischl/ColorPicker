@@ -49,7 +49,12 @@ class TextPropertyManager(customtkinter.CTkEntry):
         super().__init__(master, width=60, textvariable=variable, **kwargs)
         self.root = root
         self.variable = variable
-
+        self.master = master
+        self.bind("<KeyRelease>", self.whatKey)
+    
+    def whatKey(self, event):
+        if event.keysym.isnumeric():
+            self.variable.set(int(self.get()))
         
 class ColorfulSliders():
     def compute_h_line(width, length):
@@ -130,9 +135,9 @@ class ColorPicker(tk.Toplevel):
         
         self.colors = Colors(self, (1.0 , 0, 0))
         
-        # self.r.trace_add('write', lambda *args : self.colors.set_rgb(r=self.r.get(), g=self.g.get(), b=self.b.get()))
-        # self.g.trace_add('write', lambda *args : self.colors.set_rgb(r=self.r.get(), g=self.g.get(), b=self.b.get()))
-        # self.b.trace_add('write', lambda *args : self.colors.set_rgb(r=self.r.get(), g=self.g.get(), b=self.b.get()))
+        self.r.trace_add('write', lambda *args : self.entryCallback("RGB"))
+        self.g.trace_add('write', lambda *args : self.entryCallback("RGB"))
+        self.b.trace_add('write', lambda *args : self.entryCallback("RGB"))
         # self.hex_code.trace_add('write', lambda *args : self.colors.set_hex(self.hex_code.get()))
         
         self.color_cycle = self.compute_color_cycle(1200)
@@ -298,6 +303,12 @@ class ColorPicker(tk.Toplevel):
         
         self.action = None
         
+    def setPointers(self):
+        self.setColorCycle()
+        self.gradient = self.compute_gradient(136)
+        self.gradient_img.paste(self.gradient)
+        self.setGradient()
+        
     def entryCallback(self, caller):
         if not self.action:
             match caller:
@@ -308,6 +319,8 @@ class ColorPicker(tk.Toplevel):
                     self.gradient = self.compute_gradient(136)
                     self.gradient_img.paste(self.gradient)
                     self.setGradient()
+                    
+                    
                
 class Main(tk.Tk):
     def __init__(self, **kwargs):
