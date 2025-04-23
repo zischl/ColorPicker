@@ -1,7 +1,6 @@
 import tkinter as tk
 from PIL import Image, ImageTk
 import numpy as np
-import colorsys
 
 class RGBSlider(tk.Canvas):
     sliders = {}
