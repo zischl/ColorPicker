@@ -5,8 +5,8 @@ import colorsys
 
 class RGBSlider(tk.Canvas):
     sliders = {}
-    
-    def __init__(self, master, color=(0, 0, 0), mode='r', length=300, height=20, limit=(0,255), pointerSize=6, **kwargs):
+
+    def __init__(self, master, color=(0, 0, 0), mode='r', length=300, height=20, limit=(0,255), pointerSize = 6, **kwargs):
         super().__init__(master, width=length, height=height, bg='black', highlightthickness=0, **kwargs)
         RGBSlider.color = color
         self.mode = mode
@@ -25,6 +25,9 @@ class RGBSlider(tk.Canvas):
         self.bind('<Button-1>', self.update)
 
         self.setColor()
+        x = 0
+        y = self.height // 2
+        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
 
     def _computeGradient(self):
         length = self.length
@@ -57,17 +60,12 @@ class RGBSlider(tk.Canvas):
         self.image = self._computeGradient()
         self.photo.paste(self.image)
 
-        x = int(self.value / 255 * (self.length - 1))
-        y = self.height // 2
-        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
-
     def update(self, event):
         x = event.x
         value = int(x / self.length * 255)
         if not self.limit[0] <= value <= self.limit[1]: return
         y = self.height // 2
         self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
-        
         
         match self.mode:
             case 'r':
