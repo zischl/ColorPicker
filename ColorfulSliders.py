@@ -59,7 +59,7 @@ class RGBSlider(tk.Canvas):
 
         x = int(self.value / 255 * (self.length - 1))
         y = self.height // 2
-        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + poinself.pointerSizeterSize)
+        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
 
     def update(self, event):
         x = event.x
