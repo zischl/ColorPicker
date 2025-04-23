@@ -30,7 +30,6 @@ class RGBSlider(tk.Canvas):
         y = self.height // 2
         self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
     
-    @TimeIT
     def _computeGradient(self):
         r, g, b = RGBSlider.color
         base = np.zeros((self.height, self.length, 4), dtype=np.uint8)
@@ -50,6 +49,18 @@ class RGBSlider(tk.Canvas):
             base[:, :, 2] = ramp
         base[:, :, 3] = 255
         image = Image.fromarray(base, "RGBA")
+
+        if self.corner_radius > 0:
+            scale = 4 
+            mask_big = Image.new("L", (self.length * scale, self.height * scale), 0)
+            draw = ImageDraw.Draw(mask_big)
+            draw.rounded_rectangle(
+                (0, 0, self.length * scale, self.height * scale),
+                radius=self.corner_radius * scale,
+                fill=255
+            )
+            mask = mask_big.resize((self.length, self.height), Image.LANCZOS)
+            image.putalpha(mask)
 
         return image
 
