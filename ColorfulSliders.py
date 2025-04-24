@@ -1,7 +1,6 @@
 import tkinter as tk
 from PIL import Image, ImageTk, ImageDraw
 import numpy as np
-from TimeIt import TimeIT
 
 class RGBSlider(tk.Canvas):
     sliders = {}
@@ -26,10 +25,8 @@ class RGBSlider(tk.Canvas):
         self.bind('<Button-1>', self.update)
         
 
-        self.setColor()
-        x = 0
-        y = self.height // 2
-        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
+        self.setSliderColor()
+        self.setPointer()
     
     def _computeGradient(self):
         r, g, b = RGBSlider.color
@@ -65,9 +62,16 @@ class RGBSlider(tk.Canvas):
 
         return image
 
-
-
     def setColor(self, color=False):
+        self.setSliderColor(color)
+        self.setPointer(RGBSlider.color[0] if self.mode == 'r' else RGBSlider.color[1] if self.mode == 'g' else RGBSlider.color[2])
+
+    def setPointer(self, value=0):
+        y = self.height // 2
+        x = ((value/255)*self.length)+self.pointerSize
+        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
+        
+    def setSliderColor(self, color=False):
         RGBSlider.color = color if color else RGBSlider.color
         self.image = self._computeGradient()
         self.photo.paste(self.image)
@@ -81,27 +85,13 @@ class RGBSlider(tk.Canvas):
 
         match self.mode:
             case 'r':
-                RGBSlider.sliders['g'].setColor(color=(value, *self.color[1:]))
-                RGBSlider.sliders['b'].setColor(color=(value, *self.color[1:]))
+                RGBSlider.sliders['g'].setSliderColor(color=(value, *self.color[1:]))
+                RGBSlider.sliders['b'].setSliderColor(color=(value, *self.color[1:]))
             case 'g':
-                RGBSlider.sliders['r'].setColor(color=(self.color[0], value, self.color[2]))
-                RGBSlider.sliders['b'].setColor(color=(self.color[0], value, self.color[2]))
+                RGBSlider.sliders['r'].setSliderColor(color=(self.color[0], value, self.color[2]))
+                RGBSlider.sliders['b'].setSliderColor(color=(self.color[0], value, self.color[2]))
             case 'b':
-                RGBSlider.sliders['r'].setColor(color=(self.color[0], self.color[1], value))
-                RGBSlider.sliders['g'].setColor(color=(self.color[0], self.color[1], value))
+                RGBSlider.sliders['r'].setSliderColor(color=(self.color[0], self.color[1], value))
+                RGBSlider.sliders['g'].setSliderColor(color=(self.color[0], self.color[1], value))
         
-        print(RGBSlider.color)
-                
-root = tk.Tk()
-root.title("RGB Slider Example")
-root.configure(bg="#181818")
-
-slider_r = RGBSlider(root, mode='r', bg="#181818", length=800)
-slider_r.pack(pady=10)
-slider_g = RGBSlider(root, mode='g', bg="#181818")
-slider_g.pack(pady=10)
-slider_b = RGBSlider(root, mode='b', bg="#181818")
-slider_b.pack(pady=10)
-
-
-root.mainloop()
+        return value
