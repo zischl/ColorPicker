@@ -24,6 +24,7 @@ class RGBSlider(tk.Canvas):
         self.value = color[0] if mode=='r' else color[1] if mode=='g' else color[2]
         self.bind('<B1-Motion>', self.update)
         self.bind('<Button-1>', self.update)
+        
 
         self.setColor()
         x = 0
@@ -73,11 +74,11 @@ class RGBSlider(tk.Canvas):
 
     def update(self, event):
         x = event.x
-        value = int(x / self.length * 255)
-        if not self.limit[0] <= value <= self.limit[1]: return
+        if x <= self.pointerSize or x > self.length+self.pointerSize: return
+        value = int(((x-self.pointerSize) / self.length) * 255)
         y = self.height // 2
         self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
-        
+
         match self.mode:
             case 'r':
                 RGBSlider.sliders['g'].setColor(color=(value, *self.color[1:]))
@@ -88,13 +89,14 @@ class RGBSlider(tk.Canvas):
             case 'b':
                 RGBSlider.sliders['r'].setColor(color=(self.color[0], self.color[1], value))
                 RGBSlider.sliders['g'].setColor(color=(self.color[0], self.color[1], value))
-                
+        
+        print(RGBSlider.color)
                 
 root = tk.Tk()
 root.title("RGB Slider Example")
 root.configure(bg="#181818")
 
-slider_r = RGBSlider(root, mode='r', bg="#181818")
+slider_r = RGBSlider(root, mode='r', bg="#181818", length=800)
 slider_r.pack(pady=10)
 slider_g = RGBSlider(root, mode='g', bg="#181818")
 slider_g.pack(pady=10)
