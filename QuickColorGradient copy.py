@@ -7,6 +7,7 @@ from numba import jit
 import customtkinter
 import math
 from functools import cache
+from ColorfulSliders import RGBSlider
 
 class Colors:
     __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b")
@@ -20,16 +21,22 @@ class Colors:
         self.hue, self.s, self.v = colorsys.rgb_to_hsv(*self.rgb)
         self.hsv = (self.hue * 360, self.s * 100, self.v * 100)
         self.hex_code = '#{:02x}{:02x}{:02x}'.format(*[int(x * 255) for x in self.rgb])
-
-    
+        
     def setHue(self, hue=None, rgb=None):
         if rgb:
             self.rgb = tuple(x / 255.0 for x in rgb)
             hue, *_ = colorsys.rgb_to_hsv(*self.rgb)
         else:
-            hue = hue / 360.0 if hue is not None else self.hue
+            hue = self.hue if not hue else hue/360
+        self.rgb = colorsys.hsv_to_rgb(hue, self.s, self.v )
+        self._updateColors()
+        
+    def setHSV(self, hue=None, s=None, v=None, rgb=None):
+        if rgb:
+            self.rgb = tuple(x / 255.0 for x in rgb)
+            hue, s, v = colorsys.rgb_to_hsv(*self.rgb)
 
-        self.rgb = colorsys.hsv_to_rgb(hue, self.s, self.v)
+        self.rgb = colorsys.hsv_to_rgb(self.hue if not hue else hue/360, self.s if not s else s/100, self.v if not v else v/100)
         self._updateColors()
 
            
@@ -42,20 +49,15 @@ class Colors:
     #     self.rgb = tuple(int(hex_code[i:i+2], 16) for i in (0, 2, 4))
     #     self.update_all_from_rgb()
         
-    
 
-class TextPropertyManager(customtkinter.CTkEntry):
-    def __init__(self, master, value, variable, root, **kwargs):
-        super().__init__(master, width=60, textvariable=variable, **kwargs)
+class TextPropertyManager(tk.Spinbox):
+    def __init__(self, master, value, variable, root, from_, to, **kwargs):
+        super().__init__(master, width=60, textvariable=variable, from_=from_, to=to,  **kwargs)
         self.root = root
         self.variable = variable
         self.master = master
-        self.bind("<KeyRelease>", self.whatKey)
-    
-    def whatKey(self, event):
-        if event.keysym.isnumeric():
-            self.variable.set(int(self.get()))
-        
+
+
 class ColorfulSliders():
     def compute_h_line(width, length):
         pixels = np.zeros((width, length, 4), dtype=np.uint8)
@@ -133,13 +135,16 @@ class ColorPicker(tk.Toplevel):
         self.hsl = tk.StringVar(self)
         self.hsv = tk.StringVar(self)
         
+        # self.action = None
         self.colors = Colors(self, (1.0 , 0, 0))
         
         self.r.trace_add('write', lambda *args : self.entryCallback("RGB"))
         self.g.trace_add('write', lambda *args : self.entryCallback("RGB"))
         self.b.trace_add('write', lambda *args : self.entryCallback("RGB"))
-        # self.hex_code.trace_add('write', lambda *args : self.colors.set_hex(self.hex_code.get()))
-        
+        self.hue.trace_add('write', lambda *args : self.entryCallback("HSV"))
+        self.saturation.trace_add('write', lambda *args : self.entryCallback("HSV"))
+        self.value.trace_add('write', lambda *args : self.entryCallback("HSV"))
+                
         self.color_cycle = self.compute_color_cycle(1200)
         self.color_cycle = self.color_cycle.resize((300, 300), Image.LANCZOS)
         self.color_cycle_img = ImageTk.PhotoImage(self.color_cycle)
@@ -147,15 +152,11 @@ class ColorPicker(tk.Toplevel):
         self.gradient = self.compute_gradient(136)
         self.gradient_img = ImageTk.PhotoImage(self.gradient)
         
-        self.gradient_line = ColorfulSliders.compute_h_line(16, 150)
-        self.gradient_line_img = ImageTk.PhotoImage(self.gradient_line)
-        
         self.colors_canvas = tk.Canvas(self, bg="#181818", highlightthickness=0, width=self.size, height=self.size)
         self.colors_canvas.pack(anchor='n', fill='x')
         
         self.canvas_color_cycle = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.color_cycle_img)
         self.canvas_gradient = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_img)
-        self.canvas_gradient_line = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_line_img)
         
         self.gradient_pointer = self.colors_canvas.create_oval(self.center-10, self.center-10, self.center+10, self.center+10, fill='white', outline='gray', width=2)
         self.color_cycle_pointer = self.colors_canvas.create_oval(0, 0, 20, 20, fill='white', outline='gray', width=2)
@@ -170,24 +171,31 @@ class ColorPicker(tk.Toplevel):
         self.attributes_frame.pack(fill='x')
         self.attributes_frame.grid_columnconfigure([0,1,2,3], weight=1)
         
-        self.attribute_manager(self.attributes_frame, "R :", 0, [0,1], 10, self.r)
-        self.attribute_manager(self.attributes_frame, "G :", 1, [0,1], 10, self.g)
-        self.attribute_manager(self.attributes_frame, "B :", 2, [0,1], 10, self.b)
-        self.attribute_manager(self.attributes_frame, "Hue :", 0, [2,3], 10, self.hue)
-        self.attribute_manager(self.attributes_frame, "Saturation :", 1, [2,3], 10, self.saturation)
-        self.attribute_manager(self.attributes_frame, "Value :", 2, [2,3], 10, self.value)
-        self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
+        self.attribute_manager(self.attributes_frame, "R :", 0, [0,1], 10, self.r, 0, 255)
+        self.attribute_manager(self.attributes_frame, "G :", 1, [0,1], 10, self.g, 0, 255)
+        self.attribute_manager(self.attributes_frame, "B :", 2, [0,1], 10, self.b, 0, 255)
+        self.attribute_manager(self.attributes_frame, "Hue :", 0, [2,3], 10, self.hue, 0, 360)
+        self.attribute_manager(self.attributes_frame, "Saturation :", 1, [2,3], 10, self.saturation, 0, 100)
+        self.attribute_manager(self.attributes_frame, "Value :", 2, [2,3], 10, self.value, 0, 100)
         
-        self.attribute_manager(self.attributes_frame, "HSL :", 4, [0,1], 10, self.hsl)
-        self.attribute_manager(self.attributes_frame, "Hex :", 5, [0,1], 10, self.hex_code)
+        self.slider_r = RGBSlider(self, mode='r', bg="#181818", length=280, variable=self.r)
+        self.slider_r.pack(pady=10)
+        self.slider_g = RGBSlider(self, mode='g', bg="#181818", length=280, variable=self.g)
+        self.slider_g.pack(pady=10)
+        self.slider_b = RGBSlider(self, mode='b', bg="#181818", length=280, variable=self.b)
+        self.slider_b.pack(pady=10)
+        # self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
+        
+        # self.attribute_manager(self.attributes_frame, "HSL :", 4, [0,1], 10, self.hsl)
+        # self.attribute_manager(self.attributes_frame, "Hex :", 5, [0,1], 10, self.hex_code)
         
         self.setColorCycle()
         self.setGradient()
         self.update()
         
-    def attribute_manager(self, master, text, row, column, pady, variable):
+    def attribute_manager(self, master, text, row, column, pady, variable, from_, to):
         customtkinter.CTkLabel(master, text=text).grid(row=row, column=column[0], pady=(pady, 0))
-        TextPropertyManager(master, value=0, root=self, variable=variable).grid(row=row, column=column[1], pady=(pady, 0))
+        TextPropertyManager(master, value=0, root=self, variable=variable, from_=from_, to=to).grid(row=row, column=column[1], pady=(pady, 0))
         
     
     def hsv_to_rgb(self, h, s, v):
@@ -235,7 +243,7 @@ class ColorPicker(tk.Toplevel):
                 pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
 
         return Image.fromarray(pixels, "RGBA")
-            
+    
     def primary_col(self, event):
         dx, dy = event.x - self.center, event.y - self.center
         radius = math.sqrt(dx**2 + dy**2) / self.center
@@ -251,11 +259,14 @@ class ColorPicker(tk.Toplevel):
             self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.65/radius))-c_pos[0]-10+self.center , (dy*(0.65/radius))-c_pos[1]-10+self.center)    
         
         col = self.color_cycle.getpixel([c_pos[0]+10, c_pos[1]+10])
+        self.slider_r.setColor(col[:3])
+        self.slider_g.setColor(col[:3])
+        self.slider_b.setColor(col[:3])
         self.colors.setHue(rgb = col[:3])
         self.update()
         self.gradient = self.compute_gradient(136)
         self.gradient_img.paste(self.gradient)
-        
+    
     def secondary_col(self, event):
         if event.x < 82 or event.y < 82 or event.x >= 218 or event.y >= 218: return
         c_pos = self.colors_canvas.coords(self.gradient_pointer)
@@ -276,7 +287,7 @@ class ColorPicker(tk.Toplevel):
         y = dy + self.center
         c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
         self.colors_canvas.move(self.color_cycle_pointer, x-c_pos[0]-10 , y-c_pos[1]-10)
-        
+    
     def setGradient(self, size = 136):
         x, y = self.colors.s * (size-1), (1 - self.colors.v)*(size - 1)
         c_pos = self.colors_canvas.coords(self.gradient_pointer)
@@ -284,7 +295,7 @@ class ColorPicker(tk.Toplevel):
 
         self.gradient = self.compute_gradient(136)
         self.gradient_img.paste(self.gradient)
-        
+    
     def update(self):
         self.action = "click"
         
@@ -305,20 +316,20 @@ class ColorPicker(tk.Toplevel):
         
     def setPointers(self):
         self.setColorCycle()
-        self.gradient = self.compute_gradient(136)
-        self.gradient_img.paste(self.gradient)
         self.setGradient()
-        
+    
     def entryCallback(self, caller):
         if not self.action:
             match caller:
                 case "RGB":
                     self.colors.setRGB(self.r.get(), self.g.get(), self.b.get())
-                    self.update()
-                    self.setColorCycle()
-                    self.gradient = self.compute_gradient(136)
-                    self.gradient_img.paste(self.gradient)
-                    self.setGradient()
+                    
+                case "HSV":
+                    self.colors.setHSV(hue=self.hue.get(), s=self.saturation.get(), v=self.value.get())
+            
+            self.update()
+            self.setColorCycle()
+            self.setGradient()      
                     
                     
                
