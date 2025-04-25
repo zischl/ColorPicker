@@ -1,11 +1,13 @@
 import tkinter as tk
 from PIL import Image, ImageTk, ImageDraw
 import numpy as np
+from TimeIt import TimeIT
 
 class RGBSlider(tk.Canvas):
     sliders = {}
 
-    def __init__(self, master, color=(0, 0, 0), mode='r', length=300, height=10, limit=(0,255), pointerSize = 6, corner_radius=30, **kwargs):
+    def __init__(self, master, color=(0, 0, 0), mode='r', length=300, height=10, limit=(0,255), variable=False, 
+                 pointerSize = 6, corner_radius=30, **kwargs):
         super().__init__(master, width=length+pointerSize*2, height=height, highlightthickness=0, **kwargs)
         RGBSlider.color = color
         self.mode = mode
@@ -14,6 +16,7 @@ class RGBSlider(tk.Canvas):
         self.limit = limit
         self.pointerSize = pointerSize
         self.corner_radius = corner_radius
+        self.variable = variable
         RGBSlider.sliders[mode] = self
         
         self.photo = ImageTk.PhotoImage(self._computeGradient()) 
@@ -70,7 +73,7 @@ class RGBSlider(tk.Canvas):
         y = self.height // 2
         x = ((value/255)*self.length)+self.pointerSize
         self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
-        
+    
     def setSliderColor(self, color=False):
         RGBSlider.color = color if color else RGBSlider.color
         self.image = self._computeGradient()
@@ -94,4 +97,4 @@ class RGBSlider(tk.Canvas):
                 RGBSlider.sliders['r'].setSliderColor(color=(self.color[0], self.color[1], value))
                 RGBSlider.sliders['g'].setSliderColor(color=(self.color[0], self.color[1], value))
         
-        return value
+        if self.variable: self.variable.set(value)
