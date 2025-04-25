@@ -1,7 +1,6 @@
 import tkinter as tk
 from PIL import Image, ImageTk, ImageDraw
 import numpy as np
-from TimeIt import TimeIT
 
 class RGBSlider(tk.Canvas):
     sliders = {}

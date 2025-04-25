@@ -135,7 +135,7 @@ class ColorPicker(tk.Toplevel):
         self.hsl = tk.StringVar(self)
         self.hsv = tk.StringVar(self)
         
-        # self.action = None
+        self.action = None
         self.colors = Colors(self, (1.0 , 0, 0))
         
         self.r.trace_add('write', lambda *args : self.entryCallback("RGB"))
