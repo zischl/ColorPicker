@@ -6,7 +6,7 @@ import colorsys
 
 class RGBSlider(tk.Canvas):
     def __init__(self, master,
-                 color=(0, 0, 0), mode='r',
+                 color=(1.0, 0, 0), mode='r',
                  length=300, height=10,
                  limit=(0,255), variable=False, 
                  pointerSize = 6, corner_radius=30,
@@ -15,7 +15,7 @@ class RGBSlider(tk.Canvas):
         if colorMgr:
             self.colors = colorMgr
         else:
-            self.colors = Colors(master, (1.0, 0, 0))
+            self.colors = Colors(master, color)
 
         self.mode = mode
         self.length = length
@@ -30,7 +30,6 @@ class RGBSlider(tk.Canvas):
         self.create_image(pointerSize, 0, anchor='nw', image=self.photo)
         self.pointer = self.create_oval(0, 0, 0, 0, fill='white', outline='gray', width=2)
 
-        self.value = color[0] if mode=='r' else color[1] if mode=='g' else color[2]
         self.bind('<B1-Motion>', self.update)
         self.bind('<Button-1>', self.update)
         
@@ -72,8 +71,8 @@ class RGBSlider(tk.Canvas):
 
         return image
 
-    def setColor(self, color=False):
-        self.setSliderColor(color)
+    def setColor(self, RGB=False):
+        self.setSliderColor(RGB)
         self.setPointer(self.colors.r if self.mode == 'r' else self.colors.g if self.mode == 'g' else self.colors.b)
 
     def setPointer(self, value=0):
@@ -107,7 +106,110 @@ class RGBSlider(tk.Canvas):
         
         if self.variable: self.variable.set(value)
 
+class HSVSlider(tk.Canvas):
+    def __init__(self, master,
+                color=(1.0, 0, 0), mode='hue',
+                length=300, height=10,
+                limit=(0,360), variable=False, 
+                pointerSize = 6, corner_radius=30,
+                colorMgr=False, **kwargs):
+        super().__init__(master, width=length+pointerSize*2, height=height, highlightthickness=0, **kwargs)
+        
+        if colorMgr:
+            self.colors = colorMgr
+        else:
+            self.colors = Colors(master, color)
 
+        self.mode = mode
+        self.length = length
+        self.height = height
+        self.limit = limit
+        self.pointerSize = pointerSize
+        self.corner_radius = corner_radius
+        self.variable = variable
+        self.colors.sliders[mode] = self
+        
+        self.photo = ImageTk.PhotoImage(self._computeGradient()) 
+        self.create_image(pointerSize, 0, anchor='nw', image=self.photo)
+        self.pointer = self.create_oval(0, 0, 0, 0, fill='white', outline='gray', width=2)
+
+        self.bind('<B1-Motion>', self.update)
+        self.bind('<Button-1>', self.update)
+        
+
+        self.setSliderColor()
+        self.setPointer()
+    
+    def _computeGradient(self):
+        
+        match self.mode:
+            case 'hue':
+                line = np.linspace(0.0, 1.0, self.length)
+                pixels = np.array([colorsys.hsv_to_rgb(hue, 1, 1) for hue in line])
+                pixels = pixels * 255
+                pixels = np.tile(pixels, (self.height, 1, 1))
+                image = Image.fromarray(pixels.astype(np.uint8))
+            
+            case 's':
+                line = np.linspace(0.0, 1.0, self.length)
+                pixels = np.array([colorsys.hsv_to_rgb(self.colors.hue, s, 1) for s in line])
+                pixels = pixels * 255
+                pixels = np.tile(pixels, (self.height, 1, 1))
+                image = Image.fromarray(pixels.astype(np.uint8))
+                
+            case 'v':
+                line = np.linspace(0.0, 1.0, self.length)
+                pixels = np.array([colorsys.hsv_to_rgb(self.colors.hue, 1, v) for v in line])
+                pixels = pixels * 255
+                pixels = np.tile(pixels, (self.height, 1, 1))
+                image = Image.fromarray(pixels.astype(np.uint8))
+            
+            
+        if self.corner_radius > 0:
+            scale = 4 
+            mask_big = Image.new("L", (self.length * scale, self.height * scale), 0)
+            draw = ImageDraw.Draw(mask_big)
+            draw.rounded_rectangle(
+                (0, 0, self.length * scale, self.height * scale),
+                radius=self.corner_radius * scale,
+                fill=255
+            )
+            mask = mask_big.resize((self.length, self.height), Image.LANCZOS)
+            image.putalpha(mask)
+
+        return image
+
+    def setColor(self, hue=False, s=False, v=False):
+        self.setSliderColor(hue, s, v)
+        self.setPointer()
+
+    def setPointer(self, value=False):
+        if not value:
+            value = self.colors.hsv[0] if self.mode == 'hue' else self.colors.hsv[1] if self.mode == 's' else self.colors.hsv[2]
+        y = self.height // 2
+        x = ((value/self.limit[1])*self.length)+self.pointerSize
+        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
+    
+    def setSliderColor(self, hue=False, s=False, v=False):
+        h, saturation, value = self.colors.hsv
+        self.colors.setHSV(h if not hue else hue, saturation if not s else s, value if not v else v)
+        self.image = self._computeGradient()
+        self.photo.paste(self.image)
+
+    def update(self, event):
+        x = event.x
+        if x <= self.pointerSize or x > self.length+self.pointerSize: return
+        value = int(((x-self.pointerSize) / self.length) * self.limit[1])
+        y = self.height // 2
+        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
+        
+        match self.mode:
+            case 'hue':
+                self.colors.sliders['s'].setColor(hue=value)
+                self.colors.sliders['v'].setColor(hue=value)
+        if self.variable: self.variable.set(value)
+
+        
 class Colors:
     __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","sliders")
     def __init__(self, master, rgb):
@@ -143,11 +245,3 @@ class Colors:
     def setRGB(self, r, g, b):
         self.rgb = (r/255, g/255, b/255)
         self._updateColors()
-        
-        
-# root = tk.Tk()
-# bleh = HSVSlider(root)
-# bleh.pack()
-
-
-# root.mainloop()

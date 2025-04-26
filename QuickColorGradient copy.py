@@ -7,7 +7,7 @@ from numba import jit
 import customtkinter
 import math
 from functools import cache
-from ColorfulSliders import RGBSlider
+from ColorfulSliders import RGBSlider, HSVSlider
 
 class Colors:
     __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","sliders")
@@ -178,6 +178,15 @@ class ColorPicker(tk.Toplevel):
         self.slider_g.pack(pady=10)
         self.slider_b = RGBSlider(self, mode='b', bg="#181818", length=280, variable=self.b, colorMgr=self.colors)
         self.slider_b.pack(pady=10)
+        
+        self.slider_h = HSVSlider(self, mode="hue", bg="#181818", length=280, variable=self.hue, colorMgr=self.colors, limit=(0,360))
+        self.slider_h.pack(pady=10)
+
+        self.slider_s = HSVSlider(self, mode="s", bg="#181818", length=280, variable=self.saturation, colorMgr=self.colors, limit=(0,100))
+        self.slider_s.pack(pady=10)
+
+        self.slider_v = HSVSlider(self, mode="v", bg="#181818", length=280, variable=self.value, colorMgr=self.colors, limit=(0,100))
+        self.slider_v.pack(pady=10)
         # self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
         
         # self.attribute_manager(self.attributes_frame, "HSL :", 4, [0,1], 10, self.hsl)
@@ -311,6 +320,9 @@ class ColorPicker(tk.Toplevel):
         self.slider_r.setColor()
         self.slider_g.setColor()
         self.slider_b.setColor()
+        self.slider_h.setColor()
+        self.slider_s.setColor()
+        self.slider_v.setColor()
         #####
         
         self.hex_code.set(self.colors.hex_code)
