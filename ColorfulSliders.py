@@ -2,13 +2,21 @@ import tkinter as tk
 from PIL import Image, ImageTk, ImageDraw
 import numpy as np
 
-class RGBSlider(tk.Canvas):
-    sliders = {}
+import colorsys
 
-    def __init__(self, master, color=(0, 0, 0), mode='r', length=300, height=10, limit=(0,255), variable=False, 
-                 pointerSize = 6, corner_radius=30, **kwargs):
+class RGBSlider(tk.Canvas):
+    def __init__(self, master,
+                 color=(0, 0, 0), mode='r',
+                 length=300, height=10,
+                 limit=(0,255), variable=False, 
+                 pointerSize = 6, corner_radius=30,
+                 colorMgr=False, **kwargs):
         super().__init__(master, width=length+pointerSize*2, height=height, highlightthickness=0, **kwargs)
-        RGBSlider.color = color
+        if colorMgr:
+            self.colors = colorMgr
+        else:
+            self.colors = Colors(master, (1.0, 0, 0))
+
         self.mode = mode
         self.length = length
         self.height = height
@@ -16,7 +24,7 @@ class RGBSlider(tk.Canvas):
         self.pointerSize = pointerSize
         self.corner_radius = corner_radius
         self.variable = variable
-        RGBSlider.sliders[mode] = self
+        self.colors.sliders[mode] = self
         
         self.photo = ImageTk.PhotoImage(self._computeGradient()) 
         self.create_image(pointerSize, 0, anchor='nw', image=self.photo)
@@ -31,7 +39,7 @@ class RGBSlider(tk.Canvas):
         self.setPointer()
     
     def _computeGradient(self):
-        r, g, b = RGBSlider.color
+        r, g, b = self.colors.r, self.colors.g, self.colors.b
         base = np.zeros((self.height, self.length, 4), dtype=np.uint8)
         ramp = np.linspace(0, 255, self.length, dtype=np.uint8)
 
@@ -66,15 +74,16 @@ class RGBSlider(tk.Canvas):
 
     def setColor(self, color=False):
         self.setSliderColor(color)
-        self.setPointer(RGBSlider.color[0] if self.mode == 'r' else RGBSlider.color[1] if self.mode == 'g' else RGBSlider.color[2])
+        self.setPointer(self.colors.r if self.mode == 'r' else self.colors.g if self.mode == 'g' else self.colors.b)
 
     def setPointer(self, value=0):
         y = self.height // 2
         x = ((value/255)*self.length)+self.pointerSize
         self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
     
-    def setSliderColor(self, color=False):
-        RGBSlider.color = color if color else RGBSlider.color
+    def setSliderColor(self, RGB=False):
+        RGB = RGB if RGB else (self.colors.r, self.colors.g, self.colors.b)
+        self.colors.setRGB(*RGB)
         self.image = self._computeGradient()
         self.photo.paste(self.image)
 
@@ -87,13 +96,58 @@ class RGBSlider(tk.Canvas):
 
         match self.mode:
             case 'r':
-                RGBSlider.sliders['g'].setSliderColor(color=(value, *self.color[1:]))
-                RGBSlider.sliders['b'].setSliderColor(color=(value, *self.color[1:]))
+                self.colors.sliders['g'].setSliderColor(RGB=(value, self.colors.g, self.colors.b))
+                self.colors.sliders['b'].setSliderColor(RGB=(value, self.colors.g, self.colors.b))
             case 'g':
-                RGBSlider.sliders['r'].setSliderColor(color=(self.color[0], value, self.color[2]))
-                RGBSlider.sliders['b'].setSliderColor(color=(self.color[0], value, self.color[2]))
+                self.colors.sliders['r'].setSliderColor(RGB=(self.colors.r, value, self.colors.b))
+                self.colors.sliders['b'].setSliderColor(RGB=(self.colors.r, value, self.colors.b))
             case 'b':
-                RGBSlider.sliders['r'].setSliderColor(color=(self.color[0], self.color[1], value))
-                RGBSlider.sliders['g'].setSliderColor(color=(self.color[0], self.color[1], value))
+                self.colors.sliders['r'].setSliderColor(RGB=(self.colors.r, self.colors.g, value))
+                self.colors.sliders['g'].setSliderColor(RGB=(self.colors.r, self.colors.g, value))
         
         if self.variable: self.variable.set(value)
+
+
+class Colors:
+    __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","sliders")
+    def __init__(self, master, rgb):
+        self.master = master
+        self.rgb = rgb
+        self._updateColors()
+        self.sliders = {}
+
+    def _updateColors(self):
+        self.r , self.g, self.b = (val*255 for val in self.rgb)
+        self.hue, self.s, self.v = colorsys.rgb_to_hsv(*self.rgb)
+        self.hsv = (self.hue * 360, self.s * 100, self.v * 100)
+        self.hex_code = '#{:02x}{:02x}{:02x}'.format(*[int(x * 255) for x in self.rgb])
+        
+    def setHue(self, hue=None, rgb=None):
+        if rgb:
+            self.rgb = tuple(x / 255.0 for x in rgb)
+            hue, *_ = colorsys.rgb_to_hsv(*self.rgb)
+        else:
+            hue = self.hue if not hue else hue/360
+        self.rgb = colorsys.hsv_to_rgb(hue, self.s, self.v )
+        self._updateColors()
+        
+    def setHSV(self, hue=None, s=None, v=None, rgb=None):
+        if rgb:
+            self.rgb = tuple(x / 255.0 for x in rgb)
+            hue, s, v = colorsys.rgb_to_hsv(*self.rgb)
+
+        self.rgb = colorsys.hsv_to_rgb(self.hue if not hue else hue/360, self.s if not s else s/100, self.v if not v else v/100)
+        self._updateColors()
+
+           
+    def setRGB(self, r, g, b):
+        self.rgb = (r/255, g/255, b/255)
+        self._updateColors()
+        
+        
+# root = tk.Tk()
+# bleh = HSVSlider(root)
+# bleh.pack()
+
+
+# root.mainloop()
