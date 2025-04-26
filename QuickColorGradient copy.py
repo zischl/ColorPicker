@@ -10,11 +10,12 @@ from functools import cache
 from ColorfulSliders import RGBSlider
 
 class Colors:
-    __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b")
+    __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","sliders")
     def __init__(self, master, rgb):
         self.master = master
         self.rgb = rgb
         self._updateColors()
+        self.sliders = {}
 
     def _updateColors(self):
         self.r , self.g, self.b = (val*255 for val in self.rgb)
@@ -137,14 +138,7 @@ class ColorPicker(tk.Toplevel):
         
         self.action = None
         self.colors = Colors(self, (1.0 , 0, 0))
-        
-        self.r.trace_add('write', lambda *args : self.entryCallback("RGB"))
-        self.g.trace_add('write', lambda *args : self.entryCallback("RGB"))
-        self.b.trace_add('write', lambda *args : self.entryCallback("RGB"))
-        self.hue.trace_add('write', lambda *args : self.entryCallback("HSV"))
-        self.saturation.trace_add('write', lambda *args : self.entryCallback("HSV"))
-        self.value.trace_add('write', lambda *args : self.entryCallback("HSV"))
-                
+         
         self.color_cycle = self.compute_color_cycle(1200)
         self.color_cycle = self.color_cycle.resize((300, 300), Image.LANCZOS)
         self.color_cycle_img = ImageTk.PhotoImage(self.color_cycle)
@@ -178,16 +172,23 @@ class ColorPicker(tk.Toplevel):
         self.attribute_manager(self.attributes_frame, "Saturation :", 1, [2,3], 10, self.saturation, 0, 100)
         self.attribute_manager(self.attributes_frame, "Value :", 2, [2,3], 10, self.value, 0, 100)
         
-        self.slider_r = RGBSlider(self, mode='r', bg="#181818", length=280, variable=self.r)
+        self.slider_r = RGBSlider(self, mode='r', bg="#181818", length=280, variable=self.r, colorMgr=self.colors)
         self.slider_r.pack(pady=10)
-        self.slider_g = RGBSlider(self, mode='g', bg="#181818", length=280, variable=self.g)
+        self.slider_g = RGBSlider(self, mode='g', bg="#181818", length=280, variable=self.g, colorMgr=self.colors)
         self.slider_g.pack(pady=10)
-        self.slider_b = RGBSlider(self, mode='b', bg="#181818", length=280, variable=self.b)
+        self.slider_b = RGBSlider(self, mode='b', bg="#181818", length=280, variable=self.b, colorMgr=self.colors)
         self.slider_b.pack(pady=10)
         # self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
         
         # self.attribute_manager(self.attributes_frame, "HSL :", 4, [0,1], 10, self.hsl)
         # self.attribute_manager(self.attributes_frame, "Hex :", 5, [0,1], 10, self.hex_code)
+        
+        self.r.trace_add('write', lambda *args : self.entryCallback("RGB"))
+        self.g.trace_add('write', lambda *args : self.entryCallback("RGB"))
+        self.b.trace_add('write', lambda *args : self.entryCallback("RGB"))
+        self.hue.trace_add('write', lambda *args : self.entryCallback("HSV"))
+        self.saturation.trace_add('write', lambda *args : self.entryCallback("HSV"))
+        self.value.trace_add('write', lambda *args : self.entryCallback("HSV"))
         
         self.setColorCycle()
         self.setGradient()
@@ -259,9 +260,6 @@ class ColorPicker(tk.Toplevel):
             self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.65/radius))-c_pos[0]-10+self.center , (dy*(0.65/radius))-c_pos[1]-10+self.center)    
         
         col = self.color_cycle.getpixel([c_pos[0]+10, c_pos[1]+10])
-        self.slider_r.setColor(col[:3])
-        self.slider_g.setColor(col[:3])
-        self.slider_b.setColor(col[:3])
         self.colors.setHue(rgb = col[:3])
         self.update()
         self.gradient = self.compute_gradient(136)
@@ -308,6 +306,12 @@ class ColorPicker(tk.Toplevel):
         self.saturation.set(self.colors.hsv[1])
         self.value.set(self.colors.hsv[2])
         # self.lightness.set(self.colors.hsl[2])
+        
+        #TEMP SHIT
+        self.slider_r.setColor()
+        self.slider_g.setColor()
+        self.slider_b.setColor()
+        #####
         
         self.hex_code.set(self.colors.hex_code)
         # self.hsl.set(f"{self.colors.hsl}")
