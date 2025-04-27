@@ -18,6 +18,7 @@ class ChromaSlider(tk.Canvas):
         self.limit = limit if limit else (0,255) if mode in 'rgb' else (0,360) if mode == 'hue' else (0,100)
         self.pointerSize = pointerSize
         self.corner_radius = corner_radius
+        self.pointerY = self.height // 2
         self.variable = variable
         self.colors.sliders[mode] = self
         self._roundedMask = self._roundedEdgeMask()
@@ -50,8 +51,32 @@ class ChromaSlider(tk.Canvas):
             )
             mask = mask_big.resize((self.length, self.height), Image.LANCZOS)
             return mask   
-        
+    
+    def setPointer(self, value=0):
+        x = ((value/self.limit[1])*self.length)+self.pointerSize
+        self.coords(self.pointer, x - self.pointerSize, self.pointerY - self.pointerSize, x + self.pointerSize, self.pointerY + self.pointerSize)
 
+    def update(self, event):
+        x = event.x
+        if x <= self.pointerSize or x > self.length+self.pointerSize: return
+        value = int(((x-self.pointerSize) / self.length) * self.limit[1])
+        self.coords(self.pointer, x - self.pointerSize, self.pointerY - self.pointerSize, x + self.pointerSize, self.pointerY + self.pointerSize)
+        
+        match self.mode:
+            case 'r':
+                self.colors.sliders['g'].setSliderColor(RGB=(value, self.colors.g, self.colors.b))
+                self.colors.sliders['b'].setSliderColor(RGB=(value, self.colors.g, self.colors.b))
+            case 'g':
+                self.colors.sliders['r'].setSliderColor(RGB=(self.colors.r, value, self.colors.b))
+                self.colors.sliders['b'].setSliderColor(RGB=(self.colors.r, value, self.colors.b))
+            case 'b':
+                self.colors.sliders['r'].setSliderColor(RGB=(self.colors.r, self.colors.g, value))
+                self.colors.sliders['g'].setSliderColor(RGB=(self.colors.r, self.colors.g, value))
+            case 'hue':
+                self.colors.sliders['s'].setColor(hue=value)
+                self.colors.sliders['v'].setColor(hue=value)
+        if self.variable: self.variable.set(value)
+        
 class RGBSlider(ChromaSlider):
     def __init__(self, master,
                  color=(1.0, 0, 0), mode='r',
@@ -87,40 +112,16 @@ class RGBSlider(ChromaSlider):
 
         return image
     
-    def setColor(self, RGB=False):
+    def setColor(self, RGB=None):
         self.setSliderColor(RGB)
         self.setPointer(self.colors.r if self.mode == 'r' else self.colors.g if self.mode == 'g' else self.colors.b)
-
-    def setPointer(self, value=0):
-        y = self.height // 2
-        x = ((value/self.limit[1])*self.length)+self.pointerSize
-        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
     
-    def setSliderColor(self, RGB=False):
-        RGB = RGB if RGB else (self.colors.r, self.colors.g, self.colors.b)
+    def setSliderColor(self, RGB=None):
+        RGB = (self.colors.r, self.colors.g, self.colors.b) if RGB is None else RGB
         self.colors.setRGB(*RGB)
         self.image = self._computeGradient()
         self.photo.paste(self.image)
 
-    def update(self, event):
-        x = event.x
-        if x <= self.pointerSize or x > self.length+self.pointerSize: return
-        value = int(((x-self.pointerSize) / self.length) * self.limit[1])
-        y = self.height // 2
-        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
-        
-        match self.mode:
-            case 'r':
-                self.colors.sliders['g'].setSliderColor(RGB=(value, self.colors.g, self.colors.b))
-                self.colors.sliders['b'].setSliderColor(RGB=(value, self.colors.g, self.colors.b))
-            case 'g':
-                self.colors.sliders['r'].setSliderColor(RGB=(self.colors.r, value, self.colors.b))
-                self.colors.sliders['b'].setSliderColor(RGB=(self.colors.r, value, self.colors.b))
-            case 'b':
-                self.colors.sliders['r'].setSliderColor(RGB=(self.colors.r, self.colors.g, value))
-                self.colors.sliders['g'].setSliderColor(RGB=(self.colors.r, self.colors.g, value))
-        
-        if self.variable: self.variable.set(value)
         
 
 class HSVSlider(ChromaSlider):
@@ -162,34 +163,15 @@ class HSVSlider(ChromaSlider):
 
         return image
     
-    def setColor(self, hue=False, s=False, v=False):
+    def setColor(self, hue=None, s=None, v=None):
         self.setSliderColor(hue, s, v)
         self.setPointer(self.colors.hsv[0] if self.mode == 'hue' else self.colors.hsv[1] if self.mode == 's' else self.colors.hsv[2])
 
-    def setPointer(self, value=0):
-        y = self.height // 2
-        x = ((value/self.limit[1])*self.length)+self.pointerSize
-        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
-    
-    def setSliderColor(self, hue=False, s=False, v=False):
+    def setSliderColor(self, hue=None, s=None, v=None):
         h, saturation, value = self.colors.hsv
-        self.colors.setHSV(h if not hue else hue, saturation if not s else s, value if not v else v)
+        self.colors.setHSV(h if hue is None else hue, saturation if s is None else s, value if v is None else v)
         self.image = self._computeGradient()
         self.photo.paste(self.image)
-
-    def update(self, event):
-        x = event.x
-        if x <= self.pointerSize or x > self.length+self.pointerSize: return
-        value = int(((x-self.pointerSize) / self.length) * self.limit[1])
-        y = self.height // 2
-        self.coords(self.pointer, x - self.pointerSize, y - self.pointerSize, x + self.pointerSize, y + self.pointerSize)
-        
-        match self.mode:
-            case 'hue':
-                self.colors.sliders['s'].setColor(hue=value)
-                self.colors.sliders['v'].setColor(hue=value)
-        if self.variable: self.variable.set(value)
-
         
 class chroma:
     __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","sliders")
