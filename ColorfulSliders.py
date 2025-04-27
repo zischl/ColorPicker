@@ -245,3 +245,25 @@ class Colors:
     def setRGB(self, r, g, b):
         self.rgb = (r/255, g/255, b/255)
         self._updateColors()
+        
+    def RGBslider(self, master=False,
+                 color=(1.0, 0, 0), mode='r',
+                 length=300, height=10,
+                 limit=(0,255), variable=False, 
+                 pointerSize = 6, corner_radius=30,
+                 colorMgr=False, **kwargs):
+        if not master: master = self
+        RGBSlider(master, color, mode, length, height, limit, variable, pointerSize, corner_radius, colorMgr=self, **kwargs )
+        return self.sliders[mode]
+    
+    def HSVslider(self, master,
+                color=(1.0, 0, 0), mode='hue',
+                length=300, height=10,
+                limit=(0,360), variable=False, 
+                pointerSize = 6, corner_radius=30,
+                colorMgr=False, **kwargs):
+        if not master: master = self
+        HSVSlider(master, color, mode, length, height, limit, variable, pointerSize, corner_radius, colorMgr=self, **kwargs )
+        return self.sliders[mode]
+    
+    
