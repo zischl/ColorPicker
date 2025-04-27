@@ -7,49 +7,7 @@ from numba import jit
 import customtkinter
 import math
 from functools import cache
-from ColorfulSliders import RGBSlider, HSVSlider
-
-class Colors:
-    __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","sliders")
-    def __init__(self, master, rgb):
-        self.master = master
-        self.rgb = rgb
-        self._updateColors()
-        self.sliders = {}
-
-    def _updateColors(self):
-        self.r , self.g, self.b = (val*255 for val in self.rgb)
-        self.hue, self.s, self.v = colorsys.rgb_to_hsv(*self.rgb)
-        self.hsv = (self.hue * 360, self.s * 100, self.v * 100)
-        self.hex_code = '#{:02x}{:02x}{:02x}'.format(*[int(x * 255) for x in self.rgb])
-        
-    def setHue(self, hue=None, rgb=None):
-        if rgb:
-            self.rgb = tuple(x / 255.0 for x in rgb)
-            hue, *_ = colorsys.rgb_to_hsv(*self.rgb)
-        else:
-            hue = self.hue if not hue else hue/360
-        self.rgb = colorsys.hsv_to_rgb(hue, self.s, self.v )
-        self._updateColors()
-        
-    def setHSV(self, hue=None, s=None, v=None, rgb=None):
-        if rgb:
-            self.rgb = tuple(x / 255.0 for x in rgb)
-            hue, s, v = colorsys.rgb_to_hsv(*self.rgb)
-
-        self.rgb = colorsys.hsv_to_rgb(self.hue if not hue else hue/360, self.s if not s else s/100, self.v if not v else v/100)
-        self._updateColors()
-
-           
-    def setRGB(self, r, g, b):
-        self.rgb = (r/255, g/255, b/255)
-        self._updateColors()
-
-    # def set_hex(self, hex_code):
-    #     hex_code = hex_code.lstrip('#')
-    #     self.rgb = tuple(int(hex_code[i:i+2], 16) for i in (0, 2, 4))
-    #     self.update_all_from_rgb()
-        
+from ChromaTk import chroma, RGBSlider, HSVSlider
 
 class TextPropertyManager(tk.Spinbox):
     def __init__(self, master, value, variable, root, from_, to, **kwargs):
@@ -137,7 +95,7 @@ class ColorPicker(tk.Toplevel):
         self.hsv = tk.StringVar(self)
         
         self.action = None
-        self.colors = Colors(self, (1.0 , 0, 0))
+        self.colors = chroma(self, (1.0 , 0, 0))
          
         self.color_cycle = self.compute_color_cycle(1200)
         self.color_cycle = self.color_cycle.resize((300, 300), Image.LANCZOS)

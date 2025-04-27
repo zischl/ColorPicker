@@ -15,7 +15,7 @@ class RGBSlider(tk.Canvas):
         if colorMgr:
             self.colors = colorMgr
         else:
-            self.colors = Colors(master, color)
+            self.colors = chroma(master, color)
 
         self.mode = mode
         self.length = length
@@ -25,6 +25,7 @@ class RGBSlider(tk.Canvas):
         self.corner_radius = corner_radius
         self.variable = variable
         self.colors.sliders[mode] = self
+        self._roundedMask = self._roundedEdgeMask()
         
         self.photo = ImageTk.PhotoImage(self._computeGradient()) 
         self.create_image(pointerSize, 0, anchor='nw', image=self.photo)
@@ -56,9 +57,13 @@ class RGBSlider(tk.Canvas):
             base[:, :, 2] = ramp
         base[:, :, 3] = 255
         image = Image.fromarray(base, "RGBA")
+        image.putalpha(self._roundedMask)
 
+        return image
+    
+    def _roundedEdgeMask(self, scale=4):
         if self.corner_radius > 0:
-            scale = 4 
+            scale = scale 
             mask_big = Image.new("L", (self.length * scale, self.height * scale), 0)
             draw = ImageDraw.Draw(mask_big)
             draw.rounded_rectangle(
@@ -67,9 +72,7 @@ class RGBSlider(tk.Canvas):
                 fill=255
             )
             mask = mask_big.resize((self.length, self.height), Image.LANCZOS)
-            image.putalpha(mask)
-
-        return image
+            return mask        
 
     def setColor(self, RGB=False):
         self.setSliderColor(RGB)
@@ -118,7 +121,7 @@ class HSVSlider(tk.Canvas):
         if colorMgr:
             self.colors = colorMgr
         else:
-            self.colors = Colors(master, color)
+            self.colors = chroma(master, color)
 
         self.mode = mode
         self.length = length
@@ -210,7 +213,7 @@ class HSVSlider(tk.Canvas):
         if self.variable: self.variable.set(value)
 
         
-class Colors:
+class chroma:
     __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","sliders")
     def __init__(self, master, rgb):
         self.master = master
