@@ -131,6 +131,7 @@ class HSVSlider(tk.Canvas):
         self.corner_radius = corner_radius
         self.variable = variable
         self.colors.sliders[mode] = self
+        self._roundedMask = self._roundedEdgeMask()
         
         self.photo = ImageTk.PhotoImage(self._computeGradient()) 
         self.create_image(pointerSize, 0, anchor='nw', image=self.photo)
@@ -167,9 +168,13 @@ class HSVSlider(tk.Canvas):
                 pixels = np.tile(pixels, (self.height, 1, 1))
                 image = Image.fromarray(pixels.astype(np.uint8))
             
-            
+        image.putalpha(self._roundedMask)
+
+        return image
+    
+    def _roundedEdgeMask(self, scale=4):
         if self.corner_radius > 0:
-            scale = 4 
+            scale = scale 
             mask_big = Image.new("L", (self.length * scale, self.height * scale), 0)
             draw = ImageDraw.Draw(mask_big)
             draw.rounded_rectangle(
@@ -178,9 +183,7 @@ class HSVSlider(tk.Canvas):
                 fill=255
             )
             mask = mask_big.resize((self.length, self.height), Image.LANCZOS)
-            image.putalpha(mask)
-
-        return image
+            return mask   
 
     def setColor(self, hue=False, s=False, v=False):
         self.setSliderColor(hue, s, v)
