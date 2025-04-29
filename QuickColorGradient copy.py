@@ -2,7 +2,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import numpy as np
 import colorsys
-from TimeIt import TimeIT
+from TimeIt import TimeIT, TimeITAvg, Chronos
 from numba import jit
 import customtkinter
 import math
@@ -274,15 +274,6 @@ class ColorPicker(tk.Toplevel):
         self.value.set(self.colors.hsv[2])
         # self.lightness.set(self.colors.hsl[2])
         
-        #TEMP SHIT
-        self.slider_r.setColor()
-        self.slider_g.setColor()
-        self.slider_b.setColor()
-        self.slider_h.setColor()
-        self.slider_s.setColor()
-        self.slider_v.setColor()
-        #####
-        
         self.hex_code.set(self.colors.hex_code)
         # self.hsl.set(f"{self.colors.hsl}")
         
@@ -401,3 +392,5 @@ class Main(tk.Tk):
             
 app = Main()
 app.mainloop()
+
+Chronos.PerfIT()
