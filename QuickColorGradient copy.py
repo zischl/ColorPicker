@@ -139,10 +139,8 @@ class ColorPicker(tk.Toplevel):
         
         self.slider_h = HSVSlider(self, mode="hue", bg="#181818", length=280, variable=self.hue, colorMgr=self.colors, limit=(0,360))
         self.slider_h.pack(pady=10)
-
         self.slider_s = HSVSlider(self, mode="s", bg="#181818", length=280, variable=self.saturation, colorMgr=self.colors, limit=(0,100))
         self.slider_s.pack(pady=10)
-
         self.slider_v = HSVSlider(self, mode="v", bg="#181818", length=280, variable=self.value, colorMgr=self.colors, limit=(0,100))
         self.slider_v.pack(pady=10)
         # self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
@@ -392,5 +390,3 @@ class Main(tk.Tk):
             
 app = Main()
 app.mainloop()
-
-Chronos.PerfIT()
