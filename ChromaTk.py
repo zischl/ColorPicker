@@ -1,12 +1,13 @@
 import tkinter as tk
+import customtkinter
 from PIL import Image, ImageTk, ImageDraw
 import numpy as np
-from TimeIt import TimeIT, TimeITAvg, Chronos
-import colorsys, cv2, inspect
+import colorsys, cv2
 import matplotlib.colors as mcolors
-
+from functools import lru_cache
 
 class ChromaSlider(tk.Canvas):
+    cache = 20000
     def __init__(self, master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, **kwargs):
         super().__init__(master, width=length+pointerSize*2, height=height, highlightthickness=0, **kwargs)
         if isinstance(colorMgr, chroma):
@@ -35,7 +36,6 @@ class ChromaSlider(tk.Canvas):
         self.linespaceRGB = np.linspace(0, 255, self.length, dtype=np.uint8)
         self.linespaceHue = np.linspace(0, 179, self.length)
         self.linespaceHSV = np.linspace(0, 255, self.length)
-        # self.cache = {}
         
         self.photo = ImageTk.PhotoImage(self._computeGradient()) 
         self.create_image(pointerSize, 0, anchor='nw', image=self.photo)
@@ -73,7 +73,6 @@ class ChromaSlider(tk.Canvas):
         self.coords(self.pointer, x - self.pointerSize, self.pointerY - self.pointerSize, x + self.pointerSize, self.pointerY + self.pointerSize)
         self.value = value
     
-    @TimeITAvg(id=3)
     def update(self, event):
         x = event.x
         
@@ -122,7 +121,8 @@ class RGBSlider(ChromaSlider):
         
         self.setColor()
     
-    def _computeGradient(self):
+    @lru_cache(maxsize=ChromaSlider.cache)
+    def _computeGradient(self, rgb=None):
         match self.mode:
             case 'r':
                 self.pixels[:, :, 0] = self.linespaceRGB
@@ -148,7 +148,7 @@ class RGBSlider(ChromaSlider):
         self.setPointer(self.colors.r if self.mode == 'r' else self.colors.g if self.mode == 'g' else self.colors.b)
     
     def setSliderColor(self, RGB=None):
-        self.image = self._computeGradient()
+        self.image = self._computeGradient(self.colors.rgb)
         self.photo.paste(self.image)
 
 
@@ -163,8 +163,8 @@ class HSVSlider(ChromaSlider):
         
         self.setColor()
     
-    def _computeGradient(self):
-        # if self.colors.hsv in self.cache: return self.cache[self.colors.hsv]
+    @lru_cache(maxsize=ChromaSlider.cache)
+    def _computeGradient(self, hsv=None):
         if self.mode == 'hue':
             self.pixels[:, :, 0] = self.linespaceHue
             self.pixels[:, :, 1].fill(int(self.colors.s * 255))
@@ -181,7 +181,6 @@ class HSVSlider(ChromaSlider):
         self.pixels = cv2.cvtColor(self.pixels, cv2.COLOR_HSV2RGB)
         image = Image.fromarray(self.pixels, mode='RGB')
         image.putalpha(self._roundedMask)
-        # self.cache[self.colors.hsv] = image
         return image
     
     def _computeGradientNoHueUpdates(self):
@@ -209,7 +208,7 @@ class HSVSlider(ChromaSlider):
         self.setPointer(self.colors.hsv[0] if self.mode == 'hue' else self.colors.hsv[1] if self.mode == 's' else self.colors.hsv[2])
      
     def setSliderColor(self, hue=None, s=None, v=None):
-        self.image = self._computeGradient()
+        self.image = self._computeGradient(self.colors.hsv)
         self.photo.paste(self.image)
         
         
@@ -224,7 +223,8 @@ class HSLSlider(ChromaSlider):
         
         self.setColor()
     
-    def _computeGradient(self):
+    @lru_cache(maxsize=ChromaSlider.cache)
+    def _computeGradient(self, hls=None):
         # if self.colors.hsl in self.cache: return self.cache[self.colors.hsl]
         if self.mode == 'hue':
             self.pixels[:, :, 0] = self.linespaceHSV
@@ -250,8 +250,66 @@ class HSLSlider(ChromaSlider):
         self.setPointer(self.colors.hsl[0] if self.mode == 'hue' else self.colors.hsl[1] if self.mode == 'sl' else self.colors.hsl[2])
      
     def setSliderColor(self, hue=None, s=None, l=None):
-        self.image = self._computeGradient()
+        self.image = self._computeGradient(self.colors.hsl)
         self.photo.paste(self.image)
+        
+class ChromaSpinBox(tk.Canvas):
+    def __init__(self, master, bg='#181818', limit=(0,100), variable=None, width=75, command=None, commandKeyword='value', **kwargs):
+        super().__init__(master, bg=bg, **kwargs)
+        
+        self.decrement = tk.Label(self, text='\u2212', font=('',16,'bold'), foreground='white', bg=bg)
+        self.decrement.pack(side='left')
+        self.entry = customtkinter.CTkEntry(self, bg_color=bg, width=width-36)
+        self.entry.pack(side='left')
+        self.increment = tk.Label(self, text='+', font=('',16,'bold'), foreground='white', bg=bg)
+        self.increment.pack(side='left')
+        
+        self.commandKeyword = commandKeyword
+        self.limit = limit
+        if variable is not None:
+            self.variable = variable
+        else:
+            self.variable = tk.StringVar(self, value="0")
+        if command is not None:
+            self.command = command
+
+        self.switch = True
+        self.inputCheck = self.register(self.ValueCheck)
+        self.entry.configure(validate="key", validatecommand=(self.inputCheck, '%P'), textvariable=self.variable)
+        self.variable.trace_add('write', self.limitCheck)
+        self.increment.bind("<ButtonPress-1>", self.increase)
+        self.decrement.bind("<ButtonPress-1>", self.decrease)
+        self.increment.bind("<ButtonRelease-1>", self.valueSwitch)
+        self.decrement.bind("<ButtonRelease-1>", self.valueSwitch)
+
+        
+    def ValueCheck(self, entry):
+        return entry[1:].isdigit() or entry.isdigit() or entry in '-'
+
+    def limitCheck(self, *args):
+        variable =  self.variable.get()
+        if variable in "-+":
+            return
+        value = max(self.limit[0], min(int(variable), self.limit[1]))
+        self.variable.set(str(value))
+        if self.command is not None: self.command(**{self.commandKeyword:int(value)})
+        
+    def increase(self, event=None, count=1):
+        self.variable.set(int(self.variable.get())+1)
+        self.switch = self.after(500//count+30, self.increase, None, count+1)
+    
+    def decrease(self, event=None, count=1):
+        self.variable.set(int(self.variable.get())-1)
+        self.switch = self.after(500//count+30, self.decrease, None, count+1)
+        
+    def valueSwitch(self, event):
+        self.after_cancel(self.switch)
+        
+    def get(self):
+        self.variable.get()
+    
+    def setValue(self, value):
+        self.variable.set(value=value)
         
 class chroma:
     _instances = []
@@ -263,9 +321,7 @@ class chroma:
         self.rgb = rgb
         self._updateColors()
         chroma._instances.append(self)
-        
-    # def rgb_hsv_preserved(self):
-        
+                
     def _updateColorsPreservedHueOff(self):
         self.r , self.g, self.b = (val*255 for val in self.rgb)
         self.hue, self.s, self.v = colorsys.rgb_to_hsv(*self.rgb)
@@ -276,19 +332,32 @@ class chroma:
         self.hex_code = '#{:02x}{:02x}{:02x}'.format(*[int(x * 255) for x in self.rgb])
         for listener in self.listeners: listener()
         
-    
     def _updateColors(self):
-        self.r , self.g, self.b = (val*255 for val in self.rgb)
-        hue, s, v = colorsys.rgb_to_hsv(*self.rgb)
-        l ,s_hsl= colorsys.rgb_to_hls(*self.rgb)[1:]
-        if s == 0: hue, s_hsl = self.hue, self.s_hsl
-        if v == 0: s = self.s
-        self.l, self.s_hsl = l, s_hsl
-        self.hsl = (hue * 360, s_hsl * 100, l * 100)
+        r, g, b = self.rgb
+        r255 = int(r * 255)
+        g255 = int(g * 255)
+        b255 = int(b * 255)
+        self.r, self.g, self.b = r255, g255, b255
+
+        hue, s, v = colorsys.rgb_to_hsv(r, g, b)
+        h_, l, s_hsl = colorsys.rgb_to_hls(r, g, b)
+
+        if s < 1e-5:
+            hue, s_hsl = self.hue, self.s_hsl
+        if v < 1e-5:
+            s = self.s
+
         self.hue, self.s, self.v = hue, s, v
-        self.hsv = (self.hue * 360, self.s * 100, self.v * 100)
-        self.hex_code = '#{:02x}{:02x}{:02x}'.format(*[int(x * 255) for x in self.rgb])
-        for listener in self.listeners: listener()
+        self.l = l
+        self.s_hsl = s_hsl
+
+        self.hsl = (hue * 360.0, s_hsl * 100.0, l * 100.0)
+        self.hsv = (hue * 360.0, s * 100.0, v * 100.0)
+        self.hex_code = f'#{r255:02x}{g255:02x}{b255:02x}'
+
+        for listener in self.listeners:
+            listener()
+
         
     def setHue(self, hue=None, rgb=None):
         if rgb:
