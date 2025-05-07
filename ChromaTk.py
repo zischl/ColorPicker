@@ -269,14 +269,16 @@ class ChromaSpinBox(tk.Canvas):
         if variable is not None:
             self.variable = variable
         else:
-            self.variable = tk.StringVar(self, value="0")
-        if command is not None:
-            self.command = command
-
+            self.variable = tk.IntVar(self, value=0)
+        self.command = command if command is not None else None
+        self.callback = True
+        
+        self.value = tk.StringVar(self, int(self.variable.get()))
         self.switch = True
         self.inputCheck = self.register(self.ValueCheck)
-        self.entry.configure(validate="key", validatecommand=(self.inputCheck, '%P'), textvariable=self.variable)
-        self.variable.trace_add('write', self.limitCheck)
+        self.entry.configure(validate="key", validatecommand=(self.inputCheck, '%P'), textvariable=self.value)
+        self.variable.trace_add('write', self.variableCallback)
+        self.value.trace_add('write', self.onKeyPress)
         self.increment.bind("<ButtonPress-1>", self.increase)
         self.decrement.bind("<ButtonPress-1>", self.decrease)
         self.increment.bind("<ButtonRelease-1>", self.valueSwitch)
@@ -286,20 +288,34 @@ class ChromaSpinBox(tk.Canvas):
     def ValueCheck(self, entry):
         return entry[1:].isdigit() or entry.isdigit() or entry in '-'
 
-    def limitCheck(self, *args):
-        variable =  self.variable.get()
-        if variable in "-+":
-            return
-        value = max(self.limit[0], min(int(variable), self.limit[1]))
-        self.variable.set(str(value))
-        if self.command is not None: self.command(**{self.commandKeyword:int(value)})
+    def variableCallback(self, *args):
+        if not self.callback: pass
+
+        self.callback = False
+        self.value.set(max(self.limit[0], min(int(self.variable.get()), self.limit[1])))
+        self.callback = True
+    
+    def onKeyPress(self, *args):
+        if not self.callback: pass
+        try:
+            variable =  self.value.get()
+            if variable in "-+":
+                return
+            value = max(self.limit[0], min(int(variable), self.limit[1]))
+            self.value.set(value)
+            if self.command is not None: self.command(**{self.commandKeyword:value})
+            self.callback = False
+            self.variable.set(value)
+            self.callback = True
+        except Exception:
+            pass
         
     def increase(self, event=None, count=1):
-        self.variable.set(int(self.variable.get())+1)
+        self.variable.set(max(self.limit[0], min(int(self.variable.get())+1, self.limit[1])))
         self.switch = self.after(500//count+30, self.increase, None, count+1)
     
     def decrease(self, event=None, count=1):
-        self.variable.set(int(self.variable.get())-1)
+        self.variable.set(max(self.limit[0], min(int(self.variable.get())-1, self.limit[1])))
         self.switch = self.after(500//count+30, self.decrease, None, count+1)
         
     def valueSwitch(self, event):
@@ -310,7 +326,7 @@ class ChromaSpinBox(tk.Canvas):
     
     def setValue(self, value):
         self.variable.set(value=value)
-        
+      
 class chroma:
     _instances = []
     __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","l","s_hsl","hsl","sliders","listeners")
@@ -408,3 +424,30 @@ class chroma:
         for listener in self.listeners: listener() 
     
 
+
+# root = tk.Tk()
+# root.configure()
+
+# slider1 = RGBSlider(root, mode='r')
+# slider1.pack(pady=10)
+# slider2 = RGBSlider(root, mode='g')
+# slider2.pack(pady=10)
+# slider3 = RGBSlider(root, mode='b')
+# slider3.pack(pady=10)
+
+# slider4 = HSVSlider(root, mode='hue')
+# slider4.pack(pady=10)
+# slider5 = HSVSlider(root, mode='s')
+# slider5.pack(pady=10)
+# slider6 = HSVSlider(root, mode='v')
+# slider6.pack(pady=10)
+
+# slider7 = HSLSlider(root, mode='sl')
+# slider7.pack(pady=10)
+# slider8 = HSLSlider(root, mode='l')
+# slider8.pack(pady=10)
+
+# spinner = ChromaSpinBox(root, command=slider1.colors.setRGB, commandKeyword='r')
+# spinner.pack(pady=10)
+
+# root.mainloop()

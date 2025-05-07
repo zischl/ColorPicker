@@ -7,7 +7,7 @@ from numba import jit
 import customtkinter
 import math
 from functools import cache
-from ChromaTk import chroma, RGBSlider, HSVSlider
+from ChromaTk import chroma, RGBSlider, HSVSlider, ChromaSpinBox
 
 class TextPropertyManager(tk.Spinbox):
     def __init__(self, master, value, variable, root, from_, to, **kwargs):
@@ -123,12 +123,12 @@ class ColorPicker(tk.Toplevel):
         self.attributes_frame.pack(fill='x')
         self.attributes_frame.grid_columnconfigure([0,1,2,3], weight=1)
         
-        self.attribute_manager(self.attributes_frame, "R :", 0, [0,1], 10, self.r, 0, 255)
-        self.attribute_manager(self.attributes_frame, "G :", 1, [0,1], 10, self.g, 0, 255)
-        self.attribute_manager(self.attributes_frame, "B :", 2, [0,1], 10, self.b, 0, 255)
-        self.attribute_manager(self.attributes_frame, "Hue :", 0, [2,3], 10, self.hue, 0, 360)
-        self.attribute_manager(self.attributes_frame, "Saturation :", 1, [2,3], 10, self.saturation, 0, 100)
-        self.attribute_manager(self.attributes_frame, "Value :", 2, [2,3], 10, self.value, 0, 100)
+        self.attribute_manager(self.attributes_frame, "R :", 0, [0,1], 10, self.r, (0, 255))
+        self.attribute_manager(self.attributes_frame, "G :", 1, [0,1], 10, self.g, (0, 255))
+        self.attribute_manager(self.attributes_frame, "B :", 2, [0,1], 10, self.b, (0, 255))
+        self.attribute_manager(self.attributes_frame, "Hue :", 0, [2,3], 10, self.hue, (0, 360))
+        self.attribute_manager(self.attributes_frame, "Saturation :", 1, [2,3], 10, self.saturation, (0, 100))
+        self.attribute_manager(self.attributes_frame, "Value :", 2, [2,3], 10, self.value, (0, 100))
         
         self.slider_r = RGBSlider(self, mode='r', bg="#181818", length=280, variable=self.r, colorMgr=self.colors)
         self.slider_r.pack(pady=10)
@@ -159,9 +159,9 @@ class ColorPicker(tk.Toplevel):
         self.setGradient()
         self.update()
         
-    def attribute_manager(self, master, text, row, column, pady, variable, from_, to):
+    def attribute_manager(self, master, text, row, column, pady, variable, limit):
         customtkinter.CTkLabel(master, text=text).grid(row=row, column=column[0], pady=(pady, 0))
-        TextPropertyManager(master, value=0, root=self, variable=variable, from_=from_, to=to).grid(row=row, column=column[1], pady=(pady, 0))
+        ChromaSpinBox(master, variable=variable, limit=limit).grid(row=row, column=column[1], pady=(pady, 0))
         
     
     def hsv_to_rgb(self, h, s, v):
