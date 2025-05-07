@@ -8,14 +8,15 @@ from functools import lru_cache
 
 class ChromaSlider(tk.Canvas):
     cache = 20000
-    def __init__(self, master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, **kwargs):
+    def __init__(self, master, color, mode, length, height, limit, 
+                 variable, pointerSize, corner_radius,colorMgr, autolink, **kwargs):
         super().__init__(master, width=length+pointerSize*2, height=height, highlightthickness=0, **kwargs)
         if isinstance(colorMgr, chroma):
             self.colors = colorMgr
         elif chroma._instances:
             print(f"Warning : color manager not provided or invalid, defaulting to automatic mode.\nActive color manager found. Channel {mode} linked to {tuple(chroma._instances[-1].sliders.keys())}")
             self.colors = chroma._instances[-1]
-        elif colorMgr is None:
+        elif colorMgr is None and autolink is True:
             print("Warning : color manager not provided or invalid, defaulting to automatic mode")
             self.colors = chroma(master, color)
 
@@ -116,8 +117,8 @@ class RGBSlider(ChromaSlider):
                  length=300, height=10,
                  limit=None, variable=None, 
                  pointerSize = 6, corner_radius=30,
-                 colorMgr=None, **kwargs):
-        super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, **kwargs)
+                 colorMgr=None, autolink=True, **kwargs):
+        super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, autolink, **kwargs)
         
         self.setColor()
     
@@ -158,8 +159,8 @@ class HSVSlider(ChromaSlider):
                  length=300, height=10,
                  limit=None, variable=None, 
                  pointerSize = 6, corner_radius=30,
-                 colorMgr=None, **kwargs):
-        super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, **kwargs)
+                 colorMgr=None, autolink=True, **kwargs):
+        super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, autolink, **kwargs)
         
         self.setColor()
     
@@ -218,8 +219,8 @@ class HSLSlider(ChromaSlider):
                  length=300, height=10,
                  limit=None, variable=None, 
                  pointerSize = 6, corner_radius=30,
-                 colorMgr=None, **kwargs):
-        super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, **kwargs)
+                 colorMgr=None, autolink=True, **kwargs):
+        super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, autolink, **kwargs)
         
         self.setColor()
     
@@ -254,7 +255,8 @@ class HSLSlider(ChromaSlider):
         self.photo.paste(self.image)
         
 class ChromaSpinBox(tk.Canvas):
-    def __init__(self, master, bg='#181818', limit=(0,100), variable=None, width=75, command=None, commandKeyword='value', **kwargs):
+    def __init__(self, master, bg='#181818', limit=(0,100), variable=None, width=75,
+                 command=None, commandKeyword='value', colorMgr=None, autolink=False, mode='r', **kwargs):
         super().__init__(master, bg=bg, **kwargs)
         
         self.decrement = tk.Label(self, text='\u2212', font=('',16,'bold'), foreground='white', bg=bg)
@@ -272,6 +274,8 @@ class ChromaSpinBox(tk.Canvas):
             self.variable = tk.IntVar(self, value=0)
         self.command = command if command is not None else None
         self.callback = True
+        self.colors = None
+        self.mode = mode
         
         self.value = tk.StringVar(self, int(self.variable.get()))
         self.switch = True
@@ -283,7 +287,17 @@ class ChromaSpinBox(tk.Canvas):
         self.decrement.bind("<ButtonPress-1>", self.decrease)
         self.increment.bind("<ButtonRelease-1>", self.valueSwitch)
         self.decrement.bind("<ButtonRelease-1>", self.valueSwitch)
-
+        
+        if isinstance(colorMgr, chroma):
+            self.colors = colorMgr
+        elif chroma._instances:
+            print(f"Warning : color manager not provided or invalid, defaulting to automatic mode.\nActive color manager found. Channel {mode} spin box linked to {tuple(chroma._instances[-1].sliders.keys())}")
+            self.colors = chroma._instances[-1]
+        elif colorMgr is None and autolink is True:
+            print("Warning : color manager not provided or invalid, defaulting to automatic mode")
+            self.colors = chroma(master, (1, 0, 0))
+            
+        self.colors.listeners.append(lambda: self.setValue(getattr(self.colors, mode)))
         
     def ValueCheck(self, entry):
         return entry[1:].isdigit() or entry.isdigit() or entry in '-'
@@ -307,6 +321,8 @@ class ChromaSpinBox(tk.Canvas):
             self.callback = False
             self.variable.set(value)
             self.callback = True
+            if self.colors is not None: self.colors.setColor(**{self.mode:value})
+                
         except Exception:
             pass
         
@@ -322,10 +338,10 @@ class ChromaSpinBox(tk.Canvas):
         self.after_cancel(self.switch)
         
     def get(self):
-        self.variable.get()
+        self.value.get()
     
     def setValue(self, value):
-        self.variable.set(value=value)
+        self.value.set(value=value)
       
 class chroma:
     _instances = []
@@ -399,6 +415,14 @@ class chroma:
     def setHLS(self, hue=None, l=None, s=None):
         self.rgb =  colorsys.hls_to_rgb(self.hue if hue is None else hue/360, self.l if l is None else l/100, self.s_hsl if s is None else s/100)
         self._updateColors()
+        
+    def setColor(self, **kwargs):
+        if 'r' or 'g' or 'b' in kwargs:
+            self.setRGB(**kwargs)
+        elif 'h' or 's' or 'v' in kwargs:
+            self.setHSV(**kwargs)
+        elif 'h' or 'sl' or 'l' in kwargs:
+            self.setHLS(**kwargs)
     
     def RGBslider(self, master=False,
                  color=(1.0, 0, 0), mode='r',
@@ -424,30 +448,3 @@ class chroma:
         for listener in self.listeners: listener() 
     
 
-
-# root = tk.Tk()
-# root.configure()
-
-# slider1 = RGBSlider(root, mode='r')
-# slider1.pack(pady=10)
-# slider2 = RGBSlider(root, mode='g')
-# slider2.pack(pady=10)
-# slider3 = RGBSlider(root, mode='b')
-# slider3.pack(pady=10)
-
-# slider4 = HSVSlider(root, mode='hue')
-# slider4.pack(pady=10)
-# slider5 = HSVSlider(root, mode='s')
-# slider5.pack(pady=10)
-# slider6 = HSVSlider(root, mode='v')
-# slider6.pack(pady=10)
-
-# slider7 = HSLSlider(root, mode='sl')
-# slider7.pack(pady=10)
-# slider8 = HSLSlider(root, mode='l')
-# slider8.pack(pady=10)
-
-# spinner = ChromaSpinBox(root, command=slider1.colors.setRGB, commandKeyword='r')
-# spinner.pack(pady=10)
-
-# root.mainloop()
