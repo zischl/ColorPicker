@@ -290,14 +290,15 @@ class ChromaSpinBox(tk.Canvas):
         
         if isinstance(colorMgr, chroma):
             self.colors = colorMgr
-        elif chroma._instances:
+            self.colors.listeners.append(lambda: self.setValue(getattr(self.colors, mode)))
+        elif chroma._instances and autolink:
             print(f"Warning : color manager not provided or invalid, defaulting to automatic mode.\nActive color manager found. Channel {mode} spin box linked to {tuple(chroma._instances[-1].sliders.keys())}")
             self.colors = chroma._instances[-1]
+            self.colors.listeners.append(lambda: self.setValue(getattr(self.colors, mode)))
         elif colorMgr is None and autolink is True:
             print("Warning : color manager not provided or invalid, defaulting to automatic mode")
             self.colors = chroma(master, (1, 0, 0))
-            
-        self.colors.listeners.append(lambda: self.setValue(getattr(self.colors, mode)))
+            self.colors.listeners.append(lambda: self.setValue(getattr(self.colors, mode)))
         
     def ValueCheck(self, entry):
         return entry[1:].isdigit() or entry.isdigit() or entry in '-'
@@ -325,6 +326,8 @@ class ChromaSpinBox(tk.Canvas):
                 
         except Exception:
             pass
+        
+        
         
     def increase(self, event=None, count=1):
         self.variable.set(max(self.limit[0], min(int(self.variable.get())+1, self.limit[1])))
