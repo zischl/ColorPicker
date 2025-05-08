@@ -255,16 +255,17 @@ class HSLSlider(ChromaSlider):
         self.photo.paste(self.image)
         
 class ChromaSpinBox(tk.Canvas):
-    def __init__(self, master, bg='#181818', limit=(0,100), variable=None, width=75,
-                 command=None, commandKeyword='value', colorMgr=None, autolink=False, mode='r', **kwargs):
+    def __init__(self, master, bg='#181818', limit=(0,100), variable=None, width=75, height=16,
+                 command=None, commandKeyword='value', colorMgr=None, autolink=False, 
+                 mode='r', justify='center', **kwargs):
         super().__init__(master, bg=bg, **kwargs)
         
-        self.decrement = tk.Label(self, text='\u2212', font=('',16,'bold'), foreground='white', bg=bg)
-        self.decrement.pack(side='left')
-        self.entry = customtkinter.CTkEntry(self, bg_color=bg, width=width-36)
+        self.decrement = tk.Label(self, text='\u2212', font=('Helvetica',height,'bold'), foreground='white', bg=bg)
+        self.decrement.pack(side='left', ipadx=height//5)
+        self.entry = customtkinter.CTkEntry(self, bg_color=bg, width=width-10, justify=justify, border_width=0, height=self.decrement.winfo_reqheight(), corner_radius=0)
         self.entry.pack(side='left')
-        self.increment = tk.Label(self, text='+', font=('',16,'bold'), foreground='white', bg=bg)
-        self.increment.pack(side='left')
+        self.increment = tk.Label(self, text='+', font=('Helvetica',height,'bold'), foreground='white', bg=bg)
+        self.increment.pack(side='left', ipadx=height//5)
         
         self.commandKeyword = commandKeyword
         self.limit = limit
@@ -287,6 +288,10 @@ class ChromaSpinBox(tk.Canvas):
         self.decrement.bind("<ButtonPress-1>", self.decrease)
         self.increment.bind("<ButtonRelease-1>", self.valueSwitch)
         self.decrement.bind("<ButtonRelease-1>", self.valueSwitch)
+        self.increment.bind("<Enter>", lambda event: self.increment.configure(bg='#585858'))
+        self.decrement.bind("<Enter>", lambda event: self.decrement.configure(bg='#585858'))
+        self.increment.bind("<Leave>", lambda event: self.increment.configure(bg=bg))
+        self.decrement.bind("<Leave>", lambda event: self.decrement.configure(bg=bg))
         
         if isinstance(colorMgr, chroma):
             self.colors = colorMgr
@@ -326,7 +331,6 @@ class ChromaSpinBox(tk.Canvas):
                 
         except Exception:
             pass
-        
         
         
     def increase(self, event=None, count=1):
@@ -450,4 +454,3 @@ class chroma:
     def notifyListeners(self):
         for listener in self.listeners: listener() 
     
-
