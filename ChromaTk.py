@@ -454,3 +454,31 @@ class chroma:
     def notifyListeners(self):
         for listener in self.listeners: listener() 
     
+
+
+# root = tk.Tk()
+# root.configure()
+
+# slider1 = RGBSlider(root, mode='r')
+# slider1.pack(pady=10)
+# slider2 = RGBSlider(root, mode='g')
+# slider2.pack(pady=10)
+# slider3 = RGBSlider(root, mode='b')
+# slider3.pack(pady=10)
+
+# slider4 = HSVSlider(root, mode='hue')
+# slider4.pack(pady=10)
+# slider5 = HSVSlider(root, mode='s')
+# slider5.pack(pady=10)
+# slider6 = HSVSlider(root, mode='v')
+# slider6.pack(pady=10)
+
+# slider7 = HSLSlider(root, mode='sl')
+# slider7.pack(pady=10)
+# slider8 = HSLSlider(root, mode='l')
+# slider8.pack(pady=10)
+
+# spinner = ChromaSpinBox(root, autolink=True, limit=(0,255), width=45, height=16)
+# spinner.pack(pady=10)
+
+# root.mainloop()

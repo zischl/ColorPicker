@@ -7,7 +7,8 @@ from numba import jit
 import customtkinter
 import math
 from functools import cache
-from ChromaTk import chroma, RGBSlider, HSVSlider, ChromaSpinBox
+from ChromaTk import chroma, RGBSlider, HSVSlider, ChromaSpinBox, HSLSlider
+import cv2
 
 class TextPropertyManager(tk.Spinbox):
     def __init__(self, master, value, variable, root, from_, to, **kwargs):
@@ -87,7 +88,8 @@ class ColorPicker(tk.Toplevel):
         self.g = tk.IntVar(self)
         self.b = tk.IntVar(self)
         self.hue = tk.IntVar(self)
-        self.saturation = tk.IntVar(self)
+        self.saturationv = tk.IntVar(self)
+        self.saturationl = tk.IntVar(self)
         self.lightness = tk.IntVar(self)
         self.value = tk.IntVar(self)
         self.hex_code = tk.StringVar(self)
@@ -118,31 +120,22 @@ class ColorPicker(tk.Toplevel):
         self.colors_canvas.tag_bind(self.canvas_gradient ,"<Button-1>", self.secondary_col)
         self.colors_canvas.tag_bind(self.canvas_gradient ,"<B1-Motion>", self.secondary_col)
         
-        
-        self.attributes_frame = customtkinter.CTkFrame(self, height=200)
+        self.attributes_frame = customtkinter.CTkFrame(self, height=200, )
         self.attributes_frame.pack(fill='x')
-        self.attributes_frame.grid_columnconfigure([0,1,2,3], weight=1)
-        
-        self.attribute_manager(self.attributes_frame, "R :", 0, [0,1], 10, self.r, (0, 255), width=45, height=12)
-        self.attribute_manager(self.attributes_frame, "G :", 1, [0,1], 10, self.g, (0, 255), width=45, height=12)
-        self.attribute_manager(self.attributes_frame, "B :", 2, [0,1], 10, self.b, (0, 255), width=45, height=12)
-        self.attribute_manager(self.attributes_frame, "Hue :", 0, [2,3], 10, self.hue, (0, 360), width=45, height=12)
-        self.attribute_manager(self.attributes_frame, "Saturation :", 1, [2,3], 10, self.saturation, (0, 100), width=45, height=12)
-        self.attribute_manager(self.attributes_frame, "Value :", 2, [2,3], 10, self.value, (0, 100), width=45, height=12)
-        
-        self.slider_r = RGBSlider(self, mode='r', bg="#181818", length=280, variable=self.r, colorMgr=self.colors)
-        self.slider_r.pack(pady=10)
-        self.slider_g = RGBSlider(self, mode='g', bg="#181818", length=280, variable=self.g, colorMgr=self.colors)
-        self.slider_g.pack(pady=10)
-        self.slider_b = RGBSlider(self, mode='b', bg="#181818", length=280, variable=self.b, colorMgr=self.colors)
-        self.slider_b.pack(pady=10)
-        
-        self.slider_h = HSVSlider(self, mode="hue", bg="#181818", length=280, variable=self.hue, colorMgr=self.colors, limit=(0,360))
-        self.slider_h.pack(pady=10)
-        self.slider_s = HSVSlider(self, mode="s", bg="#181818", length=280, variable=self.saturation, colorMgr=self.colors, limit=(0,100))
-        self.slider_s.pack(pady=10)
-        self.slider_v = HSVSlider(self, mode="v", bg="#181818", length=280, variable=self.value, colorMgr=self.colors, limit=(0,100))
-        self.slider_v.pack(pady=10)
+        self.attributes_frame.grid_columnconfigure(1, weight=1)  # Allow slider to expand
+
+        self.attribute_manager(self.attributes_frame, "R :", 0, self.r, (0, 255), RGBSlider, 'r', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame, "G :", 1, self.g, (0, 255), RGBSlider, 'g', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame, "B :", 2, self.b, (0, 255), RGBSlider, 'b', width=45, height=12, justify='right')
+
+        self.attribute_manager(self.attributes_frame, "H :", 3, self.hue, (0, 360), HSVSlider, 'hue', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame, "S :", 4, self.saturationv, (0, 100), HSVSlider, 's', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame, "V :", 5, self.value, (0, 100), HSVSlider, 'v', width=45, height=12, justify='right')
+
+        # self.attribute_manager(self.attributes_frame, "H :", 3, self.hue, (0, 360), HSLSlider, 'hue', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame, "S :", 6, self.saturationl, (0, 100), HSLSlider, 'sl', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame, "L :", 7, self.lightness, (0, 100), HSLSlider, 'l', width=45, height=12, justify='right')
+
         # self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
         
         # self.attribute_manager(self.attributes_frame, "HSL :", 4, [0,1], 10, self.hsl)
@@ -152,17 +145,23 @@ class ColorPicker(tk.Toplevel):
         self.g.trace_add('write', lambda *args : self.entryCallback("RGB"))
         self.b.trace_add('write', lambda *args : self.entryCallback("RGB"))
         self.hue.trace_add('write', lambda *args : self.entryCallback("HSV"))
-        self.saturation.trace_add('write', lambda *args : self.entryCallback("HSV"))
+        self.saturationv.trace_add('write', lambda *args : self.entryCallback("HSV"))
+        self.saturationl.trace_add('write', lambda *args : self.entryCallback("HSL"))
+        self.lightness.trace_add('write', lambda *args : self.entryCallback("HSL"))
         self.value.trace_add('write', lambda *args : self.entryCallback("HSV"))
         
         self.setColorCycle()
         self.setGradient()
         self.update()
         
-    def attribute_manager(self, master, text, row, column, pady, variable, limit, **kwargs):
-        customtkinter.CTkLabel(master, text=text).grid(row=row, column=column[0], pady=(pady, 0))
-        ChromaSpinBox(master, variable=variable, limit=limit, **kwargs).grid(row=row, column=column[1], pady=(pady, 0))
-        
+    def attribute_manager(self, master, text, row, variable, limit, slider_class, mode, **kwargs):
+        customtkinter.CTkLabel(master, text=text).grid(row=row, column=0, padx=(10, 5), pady=5, sticky='w')
+
+        slider = slider_class(master, mode=mode, bg='gray17', length=160, variable=variable, colorMgr=self.colors, limit=limit, height=12)
+        slider.grid(row=row, column=1, padx=5, sticky='we')
+
+        spinbox = ChromaSpinBox(master, variable=variable, limit=limit, **kwargs)
+        spinbox.grid(row=row, column=2, padx=(5, 10))
     
     def hsv_to_rgb(self, h, s, v):
         i = int(h * 6.0) 
@@ -195,20 +194,18 @@ class ColorPicker(tk.Toplevel):
         return Image.fromarray(self.pixels, "RGBA")
     
     def compute_gradient(self, size):
-        # center = size // 2
-        pixels = np.zeros((size, size, 4), dtype=np.uint8)
-        for y in range(size):
-            for x in range(size):
-                # dx, dy = x - center, y - center
-                # angle = np.arctan2(dy, dx)
-                # radius = np.sqrt(dx**2 + dy**2) / center
-                
-                # if 1 >= radius:
-                    
-                r, g, b = colorsys.hsv_to_rgb(self.colors.hue, (x / (size - 1)), 1 - (y / (size - 1)))
-                pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
+        pixels = np.zeros((size, size, 3), dtype=np.uint8)
+        lineS = np.linspace(0, 255, size)
+        lineV = np.linspace(255, 0, size)
 
-        return Image.fromarray(pixels, "RGBA")
+        pixels[:, :, 0] = self.colors.hue * 179
+        pixels[:, :, 1] = lineS
+        pixels[:, :, 2] = lineV[:, np.newaxis]
+
+        pixels = cv2.cvtColor(pixels, cv2.COLOR_HSV2RGB)
+
+        return Image.fromarray(pixels, "RGB")
+    
     
     def primary_col(self, event):
         dx, dy = event.x - self.center, event.y - self.center
@@ -268,9 +265,9 @@ class ColorPicker(tk.Toplevel):
         
         self.hsv.set(f"{self.colors.hsv}")
         self.hue.set(self.colors.hsv[0])
-        self.saturation.set(self.colors.hsv[1])
+        self.saturationv.set(self.colors.hsv[1])
         self.value.set(self.colors.hsv[2])
-        # self.lightness.set(self.colors.hsl[2])
+        self.lightness.set(self.colors.hsl[2])
         
         self.hex_code.set(self.colors.hex_code)
         # self.hsl.set(f"{self.colors.hsl}")
@@ -288,8 +285,11 @@ class ColorPicker(tk.Toplevel):
                     self.colors.setRGB(self.r.get(), self.g.get(), self.b.get())
                     
                 case "HSV":
-                    self.colors.setHSV(hue=self.hue.get(), s=self.saturation.get(), v=self.value.get())
-            
+                    self.colors.setHSV(hue=self.hue.get(), s=self.saturationv.get(), v=self.value.get())
+
+                case "HSL":
+                    self.colors.setHLS(hue=self.hue.get(), s=self.saturationl.get(), l=self.lightness.get())
+                    
             self.update()
             self.setColorCycle()
             self.setGradient()      
@@ -301,62 +301,6 @@ class Main(tk.Tk):
         super().__init__(**kwargs)
         self.popup = ColorPicker(master=self, bg="#181818")
     
-       
-    # def compute_donut(self, size, hue):
-    #     x = np.linspace(-1, 1, size)
-    #     y = np.linspace(-1, 1, size)
-    #     X, Y = np.meshgrid(x, y)
-
-    #     # Convert to polar coordinates
-    #     radius = np.sqrt(X**2 + Y**2) / (size/2)
-    #     theta = np.arctan2(Y, X)
-    #     mask = (radius >= 0.6)
-    #     pixels = np.zeros((size, size, 4), dtype=np.uint8)
-    #     # Convert to HSV (Hue: fixed, Saturation: varies with X, Value: varies with Y)
-    #     hue_normalized = hue / 360.0
-    #     sat = (X + 1) / 2  # Normalize from -1 to 1 -> 0 to 1
-    #     val = (1 - Y) / 2  # Normalize from -1 to 1 -> 1 to 0
-
-    #     hsv_to_rgb = np.vectorize(colorsys.hsv_to_rgb)
-    #     r, g, b = hsv_to_rgb(hue_normalized, sat, val)
-
-    #     img_array = np.dstack([r * 255, g * 255, b * 255, np.full_like(r, 255)])  # RGBA
-    #     return img_array.astype(np.uint8)
-
-    def compute_circle(self, size, hue):
-        # x = np.linspace(-1, 1, size)
-        # y = np.linspace(-1, 1, size)
-        # X, Y = np.meshgrid(x, y)
-
-        # radius = np.sqrt(X**2 + Y**2)
-        # mask = radius <= 1 
-
-        # hue_normalized = hue / 360.0
-        # sat = (X + 1) / (256/size)
-        # val = (1 - Y) / (256/size)  
-
-        # hsv_to_rgb = np.vectorize(colorsys.hsv_to_rgb)
-        # r, g, b = hsv_to_rgb(hue_normalized, sat, val)
-
-    
-        # img_array = np.dstack([r * 255, g * 255, b * 255, mask * 255]) 
-        # return img_array.astype(np.uint8)
-        center = size // 2
-        pixels = np.zeros((size, size, 4), dtype=np.uint8)
-        hue = hue/360
-        for y in range(size):
-            for x in range(size):
-                dx, dy = x - center, y - center
-                angle = np.arctan2(dy, dx)
-                radius = np.sqrt(dx**2 + dy**2) / center
-                
-                # if 1 >= radius:
-                    
-                r, g, b = colorsys.hsv_to_rgb(hue, (x/size)*0.9, 1 - (y/size)*0.9)
-                pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
-
-        return pixels
-
 
     def open_popup(self):
         if self.popup:
@@ -389,4 +333,5 @@ class Main(tk.Tk):
     
             
 app = Main()
+
 app.mainloop()
