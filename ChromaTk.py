@@ -40,21 +40,14 @@ class ChromaSlider(tk.Canvas):
         
         self.photo = ImageTk.PhotoImage(self._computeGradient()) 
         self.create_image(pointerSize, 0, anchor='nw', image=self.photo)
-        self.pointer = self.create_oval(0, 0, 0, 0, fill='white', outline='gray', width=2)
+        self.pointerImg = ChromaPointer.getPointer((height,height))
+        self.pointer = self.create_image(0, 0, image=self.pointerImg, anchor=tk.CENTER)
 
         self.bind('<B1-Motion>', self.update)
         self.bind('<Button-1>', self.update)
         self.callback = True
         if variable is not None: variable.trace_add('write', self.variableCallback)
         
-        # self.modeMap = {
-        #     'r' : self.colors.r,
-        #     'g' : self.colors.g,
-        #     'b' : self.colors.b,
-        #     'hue' : self.colors.hsv[0],
-        #     's' : self.colors.hsv[1],
-        #     'v' : self.colors.hsv[2]
-        # }
         
     def _roundedEdgeMask(self, scale=4):
         if self.corner_radius > 0:
@@ -71,7 +64,7 @@ class ChromaSlider(tk.Canvas):
     
     def setPointer(self, value=0):
         x = ((value - self.limit[0]) / (self.limit[1] - self.limit[0])) * self.length + self.pointerSize
-        self.coords(self.pointer, x - self.pointerSize, self.pointerY - self.pointerSize, x + self.pointerSize, self.pointerY + self.pointerSize)
+        self.coords(self.pointer, x, self.pointerY)
         self.value = value
     
     def update(self, event):
@@ -82,8 +75,7 @@ class ChromaSlider(tk.Canvas):
 
         self.value = int(((x - self.pointerSize) / self.length) * self.limit[1])
         
-        self.coords(self.pointer, x - self.pointerSize, self.pointerY - self.pointerSize,
-                    x + self.pointerSize, self.pointerY + self.pointerSize)
+        self.coords(self.pointer, x, self.pointerY)
         
         if self.variable:
             self.callback = False
@@ -117,7 +109,7 @@ class RGBSlider(ChromaSlider):
                  color=(1.0, 0, 0), mode='r',
                  length=300, height=10,
                  limit=None, variable=None, 
-                 pointerSize = 6, corner_radius=30,
+                 pointerSize = 10, corner_radius=30,
                  colorMgr=None, autolink=True, **kwargs):
         super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, autolink, **kwargs)
         
@@ -159,7 +151,7 @@ class HSVSlider(ChromaSlider):
                  color=(1.0, 0, 0), mode='H',
                  length=300, height=10,
                  limit=None, variable=None, 
-                 pointerSize = 6, corner_radius=30,
+                 pointerSize = 10, corner_radius=30,
                  colorMgr=None, autolink=True, **kwargs):
         super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, autolink, **kwargs)
         
@@ -219,7 +211,7 @@ class HSLSlider(ChromaSlider):
                  color=(1.0, 0, 0), mode='H',
                  length=300, height=10,
                  limit=None, variable=None, 
-                 pointerSize = 6, corner_radius=30,
+                 pointerSize = 10, corner_radius=30,
                  colorMgr=None, autolink=True, **kwargs):
         super().__init__(master, color, mode, length, height, limit, variable, pointerSize, corner_radius,colorMgr, autolink, **kwargs)
         
@@ -262,7 +254,7 @@ class ChromaSpinBox(tk.Canvas):
         super().__init__(master, bg=bg, **kwargs)
         
         self.decrement = tk.Label(self, text='\u2212', font=('Helvetica',height,'bold'), foreground='white', bg=bg)
-        self.entry = customtkinter.CTkEntry(self, bg_color=bg, width=width-10, justify=justify, border_width=0, height=self.decrement.winfo_reqheight(), corner_radius=0)
+        self.entry = customtkinter.CTkEntry(self, fg_color=bg, width=width-10, justify=justify, border_width=0, height=self.decrement.winfo_reqheight(), corner_radius=0)
         self.increment = tk.Label(self, text='+', font=('Helvetica',height,'bold'), foreground='white', bg=bg)
         
         self.commandKeyword = commandKeyword
@@ -360,6 +352,40 @@ class ChromaSpinBox(tk.Canvas):
     
     def setValue(self, value):
         self.value.set(value=value)
+        
+class CopyOutField(customtkinter.CTkEntry):
+    def __init__(self, master, textvariable, fg_color='#181818', font=('',14), border_width=0, **kwargs):
+        super().__init__(master, textvariable=textvariable, fg_color=fg_color, font=font, border_width=border_width, **kwargs)
+
+        self.bind("<Enter>", lambda event: self.onHover(1))
+        self.bind("<Leave>", lambda event: self.onHover(0))
+        
+        self.copyButton = customtkinter.CTkButton(self, text='\u2398', bg_color=fg_color, fg_color=fg_color, command=self.copy, 
+                                    border_width=0, font=('',16), width=10, height=10)
+        self.copyButton.grid(row=0, padx=(75,0))
+        self.copyButton.bind("<Enter>", lambda event: self.copyButton.configure(border_width=1))
+        self.copyButton.bind("<Leave>", lambda event: self.copyButton.configure(border_width=0))
+        
+    def onHover(self, bd):
+        self.configure(border_width=bd)
+        
+    def copy(self):
+        self.clipboard_clear()
+        self.clipboard_append(self.get())
+        self.update()
+
+
+class ChromaPointer:
+    pointer = None
+    if pointer is None:
+        pointerImage = Image.new("RGBA", (60, 60), (255, 255, 255, 0))
+        draw = ImageDraw.Draw(pointerImage)
+        draw.ellipse((0, 0, 59, 59), outline="white", width=15)
+        pointer = pointerImage
+        
+        
+    def getPointer(size=(10,10)):
+        return ImageTk.PhotoImage(ChromaPointer.pointer.resize(size, Image.LANCZOS))
       
 class chroma:
     _instances = []
@@ -403,7 +429,7 @@ class chroma:
 
         self.hsl = (hue * 360.0, s_hsl * 100.0, l * 100.0)
         self.hsv = (hue * 360.0, s * 100.0, v * 100.0)
-        self.hex_code = f'#{r255:02x}{g255:02x}{b255:02x}'
+        self.hex_code = f'#{r255:02x}{g255:02x}{b255:02x}'.upper()
 
         for listener in self.listeners:
             listener()
@@ -441,12 +467,23 @@ class chroma:
             self.setHSV(**kwargs)
         elif 'h' or 'sl' or 'l' in kwargs:
             self.setHLS(**kwargs)
-    
+            
+    def hex2rgb(self, hex_code):
+        byte = bytes.fromhex(hex_code)
+        return (byte[0] / 255.0, byte[1] / 255.0, byte[2] / 255.0)
+        
+    def setHex(self, hex=None):
+        hex = hex.lstrip('#')
+        if len(hex) == 6 and all(c in '0123456789abcdefABCDEF' for c in hex):
+            self.rgb = self.hex2rgb(hex)
+            self._updateColors()
+        else: self.hex_code = f"#{hex}"
+        
     def RGBslider(self, master=False,
                  color=(1.0, 0, 0), mode='r',
                  length=300, height=10,
                  limit=(0,255), variable=False, 
-                 pointerSize = 6, corner_radius=30,
+                 pointerSize = 10, corner_radius=30,
                  colorMgr=False, **kwargs):
         if not master: master = self
         RGBSlider(master, color, mode, length, height, limit, variable, pointerSize, corner_radius, colorMgr=self, **kwargs )
@@ -456,7 +493,7 @@ class chroma:
                 color=(1.0, 0, 0), mode='hue',
                 length=300, height=10,
                 limit=(0,360), variable=False, 
-                pointerSize = 6, corner_radius=30,
+                pointerSize = 10, corner_radius=30,
                 colorMgr=False, **kwargs):
         if not master: master = self
         HSVSlider(master, color, mode, length, height, limit, variable, pointerSize, corner_radius, colorMgr=self, **kwargs )
