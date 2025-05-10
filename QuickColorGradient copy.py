@@ -7,10 +7,16 @@ from numba import jit
 import customtkinter
 import math
 from functools import cache
-from ChromaTk import chroma, RGBSlider, HSVSlider, ChromaSpinBox, HSLSlider
+from ChromaTk import *
 import cv2
 import SSC
+from CustomTitleBar import TitleBar
 
+class ChromaPreview(tk.Canvas):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+            
+            
 class ChromaQuest(tk.Toplevel):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -19,6 +25,9 @@ class ChromaQuest(tk.Toplevel):
         self.geometry("350x600+500+200")
         self.overrideredirect(True)
         self.pack_propagate(True)
+        
+        self.titleBar = TitleBar(self, self.winfo_reqwidth())
+        self.titleBar.pack(fill='x')
         
         self.r = tk.IntVar(self)
         self.g = tk.IntVar(self)
@@ -59,15 +68,21 @@ class ChromaQuest(tk.Toplevel):
         self.canvas_color_cycle = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.color_cycle_img)
         self.canvas_gradient = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_img)
         
-        self.gradient_pointer = self.colors_canvas.create_oval(self.center-10, self.center-10, self.center+10, self.center+10, fill='white', outline='gray', width=2)
-        self.color_cycle_pointer = self.colors_canvas.create_oval(0, 0, 20, 20, fill='white', outline='gray', width=2)
+        self.pointerImage = Image.new("RGBA", (60, 60), (255, 255, 255, 0))
+        draw = ImageDraw.Draw(self.pointerImage)
+        draw.ellipse((0, 0, 59, 59), outline="white", width=10)
+        self.graidentPointerImg = ImageTk.PhotoImage(self.pointerImage.resize((12,12), Image.LANCZOS))
+        self.colcylPointerImg = ImageTk.PhotoImage(self.pointerImage.resize((16,16), Image.LANCZOS))
+
+        self.gradient_pointer = self.colors_canvas.create_image(self.center, self.center, image=self.graidentPointerImg, anchor=tk.CENTER)
+        self.color_cycle_pointer = self.colors_canvas.create_image(0, 0, image=self.colcylPointerImg, anchor=tk.CENTER)
         
         self.colors_canvas.tag_bind(self.canvas_color_cycle ,"<Button-1>", self.primary_col)
         self.colors_canvas.tag_bind(self.canvas_color_cycle ,"<B1-Motion>", self.primary_col)
         self.colors_canvas.tag_bind(self.canvas_gradient ,"<Button-1>", self.secondary_col)
         self.colors_canvas.tag_bind(self.canvas_gradient ,"<B1-Motion>", self.secondary_col)
         
-        self.attributes_frame = SSC.FrameLord(self, height=200, bg='#181818')
+        self.attributes_frame = SSC.FrameLord(self, height=100, bg='#181818')
         self.attributes_frame.add('RGB')
         self.attributes_frame.add('HSV')
         self.attributes_frame.add('HSL')
@@ -76,18 +91,21 @@ class ChromaQuest(tk.Toplevel):
                                   command=self.attributes_frame.switch, font=('', 10, 'bold'))
         self.typeSelect.pack()
         self.attributes_frame.pack(fill='x')
-
+        
+        self.hexEntry = CopyOutField(self, textvariable=self.hex_code, fg_color='#181818', font=('', 14), border_width=0, width=105)
+        self.hexEntry.pack()
+        
         self.attribute_manager(self.attributes_frame.RGB, "R :", 0, self.r, (0, 255), RGBSlider, 'r', width=45, height=12, justify='right')
         self.attribute_manager(self.attributes_frame.RGB, "G :", 1, self.g, (0, 255), RGBSlider, 'g', width=45, height=12, justify='right')
         self.attribute_manager(self.attributes_frame.RGB, "B :", 2, self.b, (0, 255), RGBSlider, 'b', width=45, height=12, justify='right')
 
-        self.attribute_manager(self.attributes_frame.HSV, "H :", 3, self.hue, (0, 360), HSVSlider, 'hue', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame.HSV, "S :", 4, self.saturationv, (0, 100), HSVSlider, 's', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame.HSV, "V :", 5, self.value, (0, 100), HSVSlider, 'v', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSV, "H :", 0, self.hue, (0, 360), HSVSlider, 'hue', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSV, "S :", 1, self.saturationv, (0, 100), HSVSlider, 's', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSV, "V :", 2, self.value, (0, 100), HSVSlider, 'v', width=45, height=12, justify='right')
 
-        self.attribute_manager(self.attributes_frame.HSL, "H :", 3, self.hue, (0, 360), HSLSlider, 'hue', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame.HSL, "S :", 6, self.saturationl, (0, 100), HSLSlider, 'sl', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame.HSL, "L :", 7, self.lightness, (0, 100), HSLSlider, 'l', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSL, "H :", 0, self.hue, (0, 360), HSLSlider, 'hue', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSL, "S :", 1, self.saturationl, (0, 100), HSLSlider, 'sl', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSL, "L :", 2, self.lightness, (0, 100), HSLSlider, 'l', width=45, height=12, justify='right')
 
         # self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
         
@@ -102,6 +120,7 @@ class ChromaQuest(tk.Toplevel):
         self.saturationl.trace_add('write', lambda *args : self.entryCallback("HSL"))
         self.lightness.trace_add('write', lambda *args : self.entryCallback("HSL"))
         self.value.trace_add('write', lambda *args : self.entryCallback("HSV"))
+        self.hex_code.trace_add('write', lambda *args : self.entryCallback("Hex"))
         
         self.setColorCycle()
         self.setGradient()
@@ -110,11 +129,12 @@ class ChromaQuest(tk.Toplevel):
     def attribute_manager(self, master, text, row, variable, limit, slider_class, mode, **kwargs):
         master.grid_columnconfigure([0,2], weight=1)
         master.grid_columnconfigure(1, weight=5)
+        master.grid_rowconfigure(row, weight=1)
         customtkinter.CTkLabel(master, text=text).grid(row=row, column=0, padx=(10, 5), pady=5, sticky='w')
         slider = slider_class(master, mode=mode, bg='#181818', length=250, variable=variable, colorMgr=self.colors, limit=limit, height=12)
         slider.grid(row=row, column=1, padx=0, sticky='we')
 
-        spinbox = ChromaSpinBox(master, variable=variable, limit=limit, disableSteppers=True, **kwargs)
+        spinbox = ChromaSpinBox(master, variable=variable, limit=limit, disableSteppers=True, bg='#181818', **kwargs)
         spinbox.grid(row=row, column=2, padx=(5, 10), sticky='e')
     
     def hsv_to_rgb(self, h, s, v):
@@ -167,15 +187,15 @@ class ChromaQuest(tk.Toplevel):
         
         c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
         if 0.65 <= radius <= 0.8:
-            self.colors_canvas.move(self.color_cycle_pointer, event.x-c_pos[0]-10 , event.y-c_pos[1]-10)
+            self.colors_canvas.move(self.color_cycle_pointer, event.x-c_pos[0] , event.y-c_pos[1])
 
         elif radius > 0.8:
-            self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.79/radius))-c_pos[0]-10+self.center , (dy*(0.79/radius))-c_pos[1]-10+self.center)
+            self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.79/radius))-c_pos[0]+self.center , (dy*(0.79/radius))-c_pos[1]+self.center)
             
         elif radius < 0.65:
-            self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.65/radius))-c_pos[0]-10+self.center , (dy*(0.65/radius))-c_pos[1]-10+self.center)    
+            self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.65/radius))-c_pos[0]+self.center , (dy*(0.65/radius))-c_pos[1]+self.center)    
         
-        col = self.color_cycle.getpixel([c_pos[0]+10, c_pos[1]+10])
+        col = self.color_cycle.getpixel([c_pos[0], c_pos[1]])
         self.colors.setHue(rgb = col[:3])
         self.update()
         self.gradient = self.compute_gradient(136)
@@ -184,7 +204,7 @@ class ChromaQuest(tk.Toplevel):
     def secondary_col(self, event):
         if event.x < 82 or event.y < 82 or event.x >= 218 or event.y >= 218: return
         c_pos = self.colors_canvas.coords(self.gradient_pointer)
-        self.colors_canvas.move(self.gradient_pointer, event.x-c_pos[0]-10 , event.y-c_pos[1]-10)
+        self.colors_canvas.move(self.gradient_pointer, event.x-c_pos[0] , event.y-c_pos[1])
         
         col = self.gradient.getpixel([event.x-82,event.y-82])
         self.colors.setRGB(*col[:3])
@@ -200,12 +220,12 @@ class ChromaQuest(tk.Toplevel):
         x = dx + self.center
         y = dy + self.center
         c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
-        self.colors_canvas.move(self.color_cycle_pointer, x-c_pos[0]-10 , y-c_pos[1]-10)
+        self.colors_canvas.move(self.color_cycle_pointer, x-c_pos[0] , y-c_pos[1])
     
     def setGradient(self, size = 136):
         x, y = self.colors.s * (size-1), (1 - self.colors.v)*(size - 1)
         c_pos = self.colors_canvas.coords(self.gradient_pointer)
-        self.colors_canvas.move(self.gradient_pointer, x-c_pos[0]-10 +82 , y-c_pos[1]-10 +82)
+        self.colors_canvas.move(self.gradient_pointer, x-c_pos[0] +82 , y-c_pos[1] +82)
 
         self.gradient = self.compute_gradient(136)
         self.gradient_img.paste(self.gradient)
@@ -243,6 +263,9 @@ class ChromaQuest(tk.Toplevel):
 
                 case "HSL":
                     self.colors.setHLS(hue=self.hue.get(), s=self.saturationl.get(), l=self.lightness.get())
+                
+                case "Hex":
+                    self.colors.setHex(self.hex_code.get())
                     
             self.update()
             self.setColorCycle()
