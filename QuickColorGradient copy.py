@@ -9,78 +9,14 @@ import math
 from functools import cache
 from ChromaTk import chroma, RGBSlider, HSVSlider, ChromaSpinBox, HSLSlider
 import cv2
+import SSC
 
-class TextPropertyManager(tk.Spinbox):
-    def __init__(self, master, value, variable, root, from_, to, **kwargs):
-        super().__init__(master, width=60, textvariable=variable, from_=from_, to=to,  **kwargs)
-        self.root = root
-        self.variable = variable
-        self.master = master
-
-
-class ColorfulSliders():
-    def compute_h_line(width, length):
-        pixels = np.zeros((width, length, 4), dtype=np.uint8)
-        for y in range(width):
-            for x in range(length):
-                if y < width/2 and x in range(0, 16-y): continue
-                if y == width/2 and x in range(y): continue
-                if y > width/2 and x in range(y): continue
-                if y < width/2 and x in range(length-16+y, length): continue
-                if y == width/2 and x in range(length-16, length): continue
-                if y > width/2 and x in range(length, length-y, -1): continue
-                hue = x / length
-                r, g, b = colorsys.hsv_to_rgb(hue, 1, 1)
-                pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
-
-        return Image.fromarray(pixels, "RGBA")
-    
-    def compute_s_line(self, width, length, hue, s, v):
-        s = s if s else (x / (length - 1))
-        v = v if v else (y / (length - 1))
-        # center = size // 2
-        pixels = np.zeros((width, length, 4), dtype=np.uint8)
-        hue = hue/360
-        for y in range(width):
-            for x in range(length):
-                r, g, b = colorsys.hsv_to_rgb(hue, s, v)
-                pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
-
-        return Image.fromarray(pixels, "RGBA")
-    
-    def compute_v_line(self, width, length, hue):
-        # center = size // 2
-        pixels = np.zeros((width, length, 4), dtype=np.uint8)
-        hue = hue/360
-        for y in range(width):
-            for x in range(length):
-                r, g, b = colorsys.hsv_to_rgb(hue, 1, (x / (length - 1)))
-                pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
-
-        return Image.fromarray(pixels, "RGBA")
-    
-    def compute_RGB_line(self, width, length, hue):
-        # center = size // 2
-        pixels = np.zeros((width, length, 4), dtype=np.uint8)
-        hue = hue/360
-        for y in range(width):
-            for x in range(length):
-                r, g, b = colorsys.hsv_to_rgb(hue, 1, (x / (length - 1)))
-                pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
-
-        return Image.fromarray(pixels, "RGBA")
-
-class TraceInt(tk.IntVar):
-    def __init__(self, master = None, controller = None):
-        super().__init__(master)
-        self.trace_add('write', lambda *args :self.controller.set_rgb(r=self.r.get(), g=self.g.get(), b=self.b.get()))
-
-class ColorPicker(tk.Toplevel):
+class ChromaQuest(tk.Toplevel):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.size = 300
         self.center = self.size/2
-        self.geometry(f"{self.size}x600+500+200")
+        self.geometry("350x600+500+200")
         self.overrideredirect(True)
         self.pack_propagate(True)
         
@@ -99,15 +35,26 @@ class ColorPicker(tk.Toplevel):
         self.action = None
         self.colors = chroma(self, (1.0 , 0, 0))
          
-        self.color_cycle = self.compute_color_cycle(1200)
-        self.color_cycle = self.color_cycle.resize((300, 300), Image.LANCZOS)
+        try:
+            with open("data.bin", "rb") as cache:
+                image = cache.read()
+                self.color_cycle = Image.frombytes("RGBA", (300,300), image)
+        except IOError:
+            self.color_cycle = self.compute_color_cycle(1200)
+            self.color_cycle = self.color_cycle.resize((300, 300), Image.LANCZOS)
+            
+            with open("data.bin", "wb") as cache:
+                cache.write(self.color_cycle.tobytes())
+
+        customtkinter.CTkLabel(self, text="ChromaQuest", font=('', 24, 'bold'), text_color='white').pack(pady=(10,0))
+        
         self.color_cycle_img = ImageTk.PhotoImage(self.color_cycle)
 
         self.gradient = self.compute_gradient(136)
         self.gradient_img = ImageTk.PhotoImage(self.gradient)
         
         self.colors_canvas = tk.Canvas(self, bg="#181818", highlightthickness=0, width=self.size, height=self.size)
-        self.colors_canvas.pack(anchor='n', fill='x')
+        self.colors_canvas.pack(anchor='n')
         
         self.canvas_color_cycle = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.color_cycle_img)
         self.canvas_gradient = self.colors_canvas.create_image(self.center, self.center, anchor=tk.CENTER, image=self.gradient_img)
@@ -120,21 +67,27 @@ class ColorPicker(tk.Toplevel):
         self.colors_canvas.tag_bind(self.canvas_gradient ,"<Button-1>", self.secondary_col)
         self.colors_canvas.tag_bind(self.canvas_gradient ,"<B1-Motion>", self.secondary_col)
         
-        self.attributes_frame = customtkinter.CTkFrame(self, height=200, )
+        self.attributes_frame = SSC.FrameLord(self, height=200, bg='#181818')
+        self.attributes_frame.add('RGB')
+        self.attributes_frame.add('HSV')
+        self.attributes_frame.add('HSL')
+        
+        self.typeSelect = SSC.SSC(self, items=['RGB', 'HSV', 'HSL'], height=30, width=250, bg="#181818", 
+                                  command=self.attributes_frame.switch, font=('', 10, 'bold'))
+        self.typeSelect.pack()
         self.attributes_frame.pack(fill='x')
-        self.attributes_frame.grid_columnconfigure(1, weight=1)  # Allow slider to expand
 
-        self.attribute_manager(self.attributes_frame, "R :", 0, self.r, (0, 255), RGBSlider, 'r', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame, "G :", 1, self.g, (0, 255), RGBSlider, 'g', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame, "B :", 2, self.b, (0, 255), RGBSlider, 'b', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.RGB, "R :", 0, self.r, (0, 255), RGBSlider, 'r', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.RGB, "G :", 1, self.g, (0, 255), RGBSlider, 'g', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.RGB, "B :", 2, self.b, (0, 255), RGBSlider, 'b', width=45, height=12, justify='right')
 
-        self.attribute_manager(self.attributes_frame, "H :", 3, self.hue, (0, 360), HSVSlider, 'hue', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame, "S :", 4, self.saturationv, (0, 100), HSVSlider, 's', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame, "V :", 5, self.value, (0, 100), HSVSlider, 'v', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSV, "H :", 3, self.hue, (0, 360), HSVSlider, 'hue', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSV, "S :", 4, self.saturationv, (0, 100), HSVSlider, 's', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSV, "V :", 5, self.value, (0, 100), HSVSlider, 'v', width=45, height=12, justify='right')
 
-        # self.attribute_manager(self.attributes_frame, "H :", 3, self.hue, (0, 360), HSLSlider, 'hue', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame, "S :", 6, self.saturationl, (0, 100), HSLSlider, 'sl', width=45, height=12, justify='right')
-        self.attribute_manager(self.attributes_frame, "L :", 7, self.lightness, (0, 100), HSLSlider, 'l', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSL, "H :", 3, self.hue, (0, 360), HSLSlider, 'hue', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSL, "S :", 6, self.saturationl, (0, 100), HSLSlider, 'sl', width=45, height=12, justify='right')
+        self.attribute_manager(self.attributes_frame.HSL, "L :", 7, self.lightness, (0, 100), HSLSlider, 'l', width=45, height=12, justify='right')
 
         # self.attribute_manager(self.attributes_frame, "HSV :", 3, [0,1], 10, self.hsv)
         
@@ -155,13 +108,14 @@ class ColorPicker(tk.Toplevel):
         self.update()
         
     def attribute_manager(self, master, text, row, variable, limit, slider_class, mode, **kwargs):
+        master.grid_columnconfigure([0,2], weight=1)
+        master.grid_columnconfigure(1, weight=5)
         customtkinter.CTkLabel(master, text=text).grid(row=row, column=0, padx=(10, 5), pady=5, sticky='w')
+        slider = slider_class(master, mode=mode, bg='#181818', length=250, variable=variable, colorMgr=self.colors, limit=limit, height=12)
+        slider.grid(row=row, column=1, padx=0, sticky='we')
 
-        slider = slider_class(master, mode=mode, bg='gray17', length=160, variable=variable, colorMgr=self.colors, limit=limit, height=12)
-        slider.grid(row=row, column=1, padx=5, sticky='we')
-
-        spinbox = ChromaSpinBox(master, variable=variable, limit=limit, **kwargs)
-        spinbox.grid(row=row, column=2, padx=(5, 10))
+        spinbox = ChromaSpinBox(master, variable=variable, limit=limit, disableSteppers=True, **kwargs)
+        spinbox.grid(row=row, column=2, padx=(5, 10), sticky='e')
     
     def hsv_to_rgb(self, h, s, v):
         i = int(h * 6.0) 
@@ -299,36 +253,15 @@ class ColorPicker(tk.Toplevel):
 class Main(tk.Tk):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.popup = ColorPicker(master=self, bg="#181818")
+        button = tk.Button(self, command=self.click, text='open')
+        button.pack()
+        
     
+    def click(self):
+        self.popup = ChromaQuest(master=self, bg="#181818")
 
-    def open_popup(self):
-        if self.popup:
-            self.popup.destroy()  
-
-        self.popup = tk.Toplevel(master=self.root)
-        self.popup.title("Popup Window")
-        self.popup['bg'] = 'grey'
-        self.popup.attributes('-transparentcolor', 'black')
-        self.popup.overrideredirect(True)
         
-        self.gradient_image = self.generate_optimized_donut(1200)
-        self.final_image = self.gradient_image.resize((300, 300), Image.LANCZOS)
-        self.tk_image1 = ImageTk.PhotoImage(self.final_image)
 
-        img = Image.fromarray(self.compute_circle(135, 266), "RGBA")
-        self.tk_image = ImageTk.PhotoImage(img)
-
-        self.canvas = tk.Canvas(self.popup, width=self.size, height=self.size, bg="#181818", highlightthickness=0)
-        self.canvas.pack()
-        self.canvas_img = self.canvas.create_image(300/2, 300/2, anchor=tk.CENTER, image=self.tk_image)
-        self.canvas_img1 = self.canvas.create_image(300/2, 300/2, anchor=tk.CENTER, image=self.tk_image1)
-        
-        self.canvas.tag_bind(self.canvas_img1 ,"<Button-1>", self.add_custom_col)
-        self.canvas.tag_bind(self.canvas_img1 ,"<B1-Motion>", self.add_custom_col)
-        
-        customtkinter.CTkLabel(self.popup, text="Hue").pack(side="top")
-        TextPropertyManager(self.popup, value=0, root=self).pack(side="left")
         
     
             
