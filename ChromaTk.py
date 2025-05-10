@@ -95,6 +95,7 @@ class ChromaSlider(tk.Canvas):
                 self.colors.setRGB(**{self.mode:self.value})
             
             case 'hue':
+                print(self.value)
                 if self.value == 360: 
                     self.colors.setHue(self.colors.sliders['hue'].value)
                     self.setPointer(360)
@@ -256,16 +257,13 @@ class HSLSlider(ChromaSlider):
         
 class ChromaSpinBox(tk.Canvas):
     def __init__(self, master, bg='#181818', limit=(0,100), variable=None, width=75, height=16,
-                 command=None, commandKeyword='value', colorMgr=None, autolink=False, 
-                 mode='r', justify='center', **kwargs):
+                 command=None, commandKeyword='value', colorMgr=None, autolink=False, disableSteppers=False, 
+                 mode='r', justify='center', autoHideSteppers=False, **kwargs):
         super().__init__(master, bg=bg, **kwargs)
         
         self.decrement = tk.Label(self, text='\u2212', font=('Helvetica',height,'bold'), foreground='white', bg=bg)
-        self.decrement.pack(side='left', ipadx=height//5)
         self.entry = customtkinter.CTkEntry(self, bg_color=bg, width=width-10, justify=justify, border_width=0, height=self.decrement.winfo_reqheight(), corner_radius=0)
-        self.entry.pack(side='left')
         self.increment = tk.Label(self, text='+', font=('Helvetica',height,'bold'), foreground='white', bg=bg)
-        self.increment.pack(side='left', ipadx=height//5)
         
         self.commandKeyword = commandKeyword
         self.limit = limit
@@ -277,6 +275,7 @@ class ChromaSpinBox(tk.Canvas):
         self.callback = True
         self.colors = None
         self.mode = mode
+        self.autoHideSteppers = autoHideSteppers
         
         self.value = tk.StringVar(self, int(self.variable.get()))
         self.switch = True
@@ -284,15 +283,27 @@ class ChromaSpinBox(tk.Canvas):
         self.entry.configure(validate="key", validatecommand=(self.inputCheck, '%P'), textvariable=self.value)
         self.variable.trace_add('write', self.variableCallback)
         self.value.trace_add('write', self.onKeyPress)
-        self.increment.bind("<ButtonPress-1>", self.increase)
-        self.decrement.bind("<ButtonPress-1>", self.decrease)
-        self.increment.bind("<ButtonRelease-1>", self.valueSwitch)
-        self.decrement.bind("<ButtonRelease-1>", self.valueSwitch)
-        self.increment.bind("<Enter>", lambda event: self.increment.configure(bg='#585858'))
-        self.decrement.bind("<Enter>", lambda event: self.decrement.configure(bg='#585858'))
-        self.increment.bind("<Leave>", lambda event: self.increment.configure(bg=bg))
-        self.decrement.bind("<Leave>", lambda event: self.decrement.configure(bg=bg))
         
+        if not disableSteppers:
+            self.decrement.pack(side='left', ipadx=height//5)
+            self.entry.pack(side='left')
+            self.increment.pack(side='left', ipadx=height//5)
+            self.increment.bind("<ButtonPress-1>", self.increase)
+            self.decrement.bind("<ButtonPress-1>", self.decrease)
+            self.increment.bind("<ButtonRelease-1>", self.valueSwitch)
+            self.decrement.bind("<ButtonRelease-1>", self.valueSwitch)
+            self.increment.bind("<Enter>", lambda event: self.increment.configure(bg='#585858'))
+            self.decrement.bind("<Enter>", lambda event: self.decrement.configure(bg='#585858'))
+            self.increment.bind("<Leave>", lambda event: self.increment.configure(bg=bg))
+            self.decrement.bind("<Leave>", lambda event: self.decrement.configure(bg=bg))
+        
+        else:
+            self.entry.pack(side='left')
+        # if self.autoHideSteppers:
+        #     self.increment.pack_forget()
+        #     self.decrement.pack_forget()
+        #     self.entry.bind("<Enter>", lambda event: )
+            
         if isinstance(colorMgr, chroma):
             self.colors = colorMgr
             self.colors.listeners.append(lambda: self.setValue(getattr(self.colors, mode)))
