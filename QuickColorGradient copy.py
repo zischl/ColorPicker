@@ -12,17 +12,12 @@ import cv2
 import SSC
 from CustomTitleBar import TitleBar
 
-class ChromaPreview(tk.Canvas):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-            
-            
 class ChromaQuest(tk.Toplevel):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.size = 300
         self.center = self.size/2
-        self.geometry("350x600+500+200")
+        self.geometry("350x650+500+200")
         self.overrideredirect(True)
         self.pack_propagate(True)
         
@@ -94,6 +89,10 @@ class ChromaQuest(tk.Toplevel):
         
         self.hexEntry = CopyOutField(self, textvariable=self.hex_code, fg_color='#181818', font=('', 14), border_width=0, width=105)
         self.hexEntry.pack()
+        
+        self.history = ChromaPalette(self, 2, 7, height=150, bg='#1c1c1c', highlightthickness=0, colorVar=self.hex_code)
+        self.history.pack(fill='x')
+        
         
         self.attribute_manager(self.attributes_frame.RGB, "R :", 0, self.r, (0, 255), RGBSlider, 'r', width=45, height=12, justify='right')
         self.attribute_manager(self.attributes_frame.RGB, "G :", 1, self.g, (0, 255), RGBSlider, 'g', width=45, height=12, justify='right')
@@ -195,6 +194,7 @@ class ChromaQuest(tk.Toplevel):
         elif radius < 0.65:
             self.colors_canvas.move(self.color_cycle_pointer, (dx*(0.65/radius))-c_pos[0]+self.center , (dy*(0.65/radius))-c_pos[1]+self.center)    
         
+        c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
         col = self.color_cycle.getpixel([c_pos[0], c_pos[1]])
         self.colors.setHue(rgb = col[:3])
         self.update()

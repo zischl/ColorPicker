@@ -387,6 +387,103 @@ class ChromaPointer:
     def getPointer(size=(10,10)):
         return ImageTk.PhotoImage(ChromaPointer.pointer.resize(size, Image.LANCZOS))
       
+class ColorTile(customtkinter.CTkFrame):
+    def __init__(self, master, hexCode, height=40, width=40, variable=None, command=None, **kwargs):
+        super().__init__(master, fg_color=hexCode, corner_radius=10, width=width, height=height, cursor="hand2", **kwargs)
+        self.hexCode = hexCode
+        self.hover = self.hex2gray(self.hexCode)
+        self.height = height
+        self.width = width
+
+        self.bind("<Enter>", self.onHover)
+        self.bind("<Leave>", self.onLeave)
+        
+        self.command = command
+        self.variable = variable
+        if command is not None or variable is not None:
+            self.bind("<Button-1>", self.onClick)
+
+    def onHover(self, event):
+        self.tooltip = self._canvas.create_text(self.width//2, self.height//2, text=self.hexCode.strip('#'), fill="white", font=('',8))
+        self.configure(fg_color=self.hover)
+        
+    def onLeave(self, event=None):
+        self._canvas.itemconfigure(self.tooltip, fill = self.hexCode)
+        self.configure(fg_color=self.hexCode)
+
+    def onClick(self, event):
+        if self.command:
+            self.command(self.hexCode)
+        if self.variable: self.variable.set(self.hexCode)
+        
+    def hex2gray(self, hex_color, strength=0.4):
+        if hex_color.startswith('#'):
+            hex_color = hex_color[1:]
+        r, g, b = int(hex_color[:2], 16), int(hex_color[2:4], 16), int(hex_color[4:], 16)
+
+        mixer = lambda color: int(color * strength)
+
+        return '#{:02x}{:02x}{:02x}'.format(mixer(r), mixer(g), mixer(b))
+    
+    
+
+class array:
+    def __init__(self, size, returnIndex):
+        self.data = []
+        self.size = size
+        self.returnIndex = returnIndex
+        
+    def append(self, obj):
+        self.data.append(obj)
+        if len(self.data) > self.size:
+            return self.data.pop(self.returnIndex)
+        return None
+    
+    def get(self, index=0, invalid=None):
+        return self.data[index] if -len(self.data) <= index < len(self.data) else invalid
+    
+    def pop(self, index=0):
+        return self.data.pop(index)
+        
+class ChromaPalette(tk.Canvas):
+    def __init__(self, master, rows, columns, height=150, width=150, tileWidth=40, tileHeight=40, colorVar=None, **kwargs):
+        super().__init__(master, height=height, width=width, **kwargs)
+        self.objects = []
+        self.rows = rows
+        self.columns = columns
+        self.max = (rows*columns)-1
+        self.count = 0
+        self.variable = colorVar
+        
+        self.frames = [tk.Frame(self, **kwargs) for frame in range(rows)]
+        for index, frame in enumerate(self.frames):
+            frame.pack(fill='x', padx=10)
+            self.objects.append(array(*(self.columns-1, 0) if index==0 else (self.columns, 0)))
+            
+        self.addButton = customtkinter.CTkButton(self.frames[0], width=tileWidth, height=tileHeight, fg_color='#2c2c2c',
+                                                 text='+', font=('',20,'bold'), command=lambda :self.add(colorVar.get()))
+        self.addButton.pack(padx=3, pady=3, side='left')
+    
+    def add(self, hex):  
+        tile = ColorTile(self.frames[0], hex, variable=self.variable)
+        tile.pack(padx=3, pady=3, anchor='w', after=self.addButton, side='left')
+        returnValue = self.objects[0].append(tile)
+        self.count += 1
+        
+        if self.count > self.max: self.objects[-1].pop(0).destroy()
+        
+        if returnValue is not None:
+            self.limitManager(returnValue, 1)
+            
+        
+    def limitManager(self, returnValue, frame):
+        if returnValue is not None:
+            tile = ColorTile(self.frames[frame], returnValue.hexCode, variable=self.variable)
+            returnValue.destroy()
+            tile.pack(padx=3, anchor='w', before=self.objects[frame].get(-1), side='left')
+            returnValue = self.objects[frame].append(tile)
+            self.limitManager(returnValue, frame+1)
+
 class chroma:
     _instances = []
     __slots__ = ("master", "rgb", "hue", "s", "v", "hsv", "hex_code","r","g","b","l","s_hsl","hsl","sliders","listeners")
