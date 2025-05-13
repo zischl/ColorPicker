@@ -457,7 +457,7 @@ class ChromaPalette(tk.Canvas):
         
         self.frames = [tk.Frame(self, **kwargs) for frame in range(rows)]
         for index, frame in enumerate(self.frames):
-            frame.pack(fill='x', padx=10)
+            frame.pack(fill='x')
             self.objects.append(array(*(self.columns-1, 0) if index==0 else (self.columns, 0)))
             
         self.addButton = customtkinter.CTkButton(self.frames[0], width=tileWidth, height=tileHeight, fg_color='#2c2c2c',
@@ -483,6 +483,34 @@ class ChromaPalette(tk.Canvas):
             tile.pack(padx=3, anchor='w', before=self.objects[frame].get(-1), side='left')
             returnValue = self.objects[frame].append(tile)
             self.limitManager(returnValue, frame+1)
+
+class ChromaHistory(tk.Canvas):
+    def __init__(self, master, limit=20, height=50, width=150, tileWidth=40, tileHeight=40, colorVar=None, data=None, **kwargs):
+        super().__init__(master, height=height, width=width, **kwargs)
+        self.history = []
+        self.max = limit
+        self.variable = colorVar
+        
+        self.frame = tk.Frame(self, **kwargs)
+        self.create_window(0, 0, anchor='nw',window=self.frame)
+        
+        if data is not None:
+            for each in data:
+                self.add(each)
+
+    def add(self, hex):  
+        tile = ColorTile(self.frame, hex, variable=self.variable)
+        tile.pack(padx=3, pady=3, anchor='w', side='left', before=self.history[-1] if self.history else None)
+        self.history.append(tile)
+        
+        self.count = len(self.history)
+        if self.count > self.max: self.history.pop(0).destroy()
+        
+    def clear(self):
+        for each in self.history:
+            each.destroy()
+        self.history.clear()
+
 
 class chroma:
     _instances = []
