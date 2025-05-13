@@ -49,7 +49,6 @@ class SSC(tk.Canvas):
         def scrollReset(self, event):
                 self.after_cancel(self.callback)
                 self.thing.xview_moveto(self.thing.xviewCenter)
-                print(self.thing.xviewCenter, self.thing.xview(), self.coords(self.thing.window))
         
 
 class container(tk.Canvas):

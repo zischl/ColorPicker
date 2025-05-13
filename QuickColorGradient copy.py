@@ -2,13 +2,13 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import numpy as np
 import colorsys
-from TimeIt import TimeIT, TimeITAvg, Chronos
-from numba import jit
+from TimeIt import Chronos, TimeIT, TimeItAuto
+from numba import jit, njit
 import customtkinter
 import math
 from functools import cache
 from ChromaTk import *
-import cv2
+import cv2, json, atexit
 import SSC
 from CustomTitleBar import TitleBar
 
@@ -17,7 +17,7 @@ class ChromaQuest(tk.Toplevel):
         super().__init__(master, **kwargs)
         self.size = 300
         self.center = self.size/2
-        self.geometry("350x650+500+200")
+        self.geometry("350x650+500+50")
         self.overrideredirect(True)
         self.pack_propagate(True)
         
@@ -50,7 +50,7 @@ class ChromaQuest(tk.Toplevel):
             with open("data.bin", "wb") as cache:
                 cache.write(self.color_cycle.tobytes())
 
-        customtkinter.CTkLabel(self, text="ChromaQuest", font=('', 24, 'bold'), text_color='white').pack(pady=(10,0))
+        customtkinter.CTkLabel(self, text="ChromaQuest", font=('', 24, 'bold'), text_color='white').pack()
         
         self.color_cycle_img = ImageTk.PhotoImage(self.color_cycle)
 
@@ -77,6 +77,7 @@ class ChromaQuest(tk.Toplevel):
         self.colors_canvas.tag_bind(self.canvas_gradient ,"<Button-1>", self.secondary_col)
         self.colors_canvas.tag_bind(self.canvas_gradient ,"<B1-Motion>", self.secondary_col)
         
+        
         self.attributes_frame = SSC.FrameLord(self, height=100, bg='#181818')
         self.attributes_frame.add('RGB')
         self.attributes_frame.add('HSV')
@@ -89,9 +90,27 @@ class ChromaQuest(tk.Toplevel):
         
         self.hexEntry = CopyOutField(self, textvariable=self.hex_code, fg_color='#181818', font=('', 14), border_width=0, width=105)
         self.hexEntry.pack()
+
         
-        self.history = ChromaPalette(self, 2, 7, height=150, bg='#1c1c1c', highlightthickness=0, colorVar=self.hex_code)
-        self.history.pack(fill='x')
+        self.colorTileFrame = tk.Frame(self, bg='#181818')
+        self.colorTileFrame.pack(fill='x', expand=True, padx=15)
+        self.colorTileFrame.grid_columnconfigure([0,1], weight=1)
+        tk.Label(self.colorTileFrame, text='History', bg='#1c1c1c', fg='white', font=('', 11)).grid(row=0, column=0, sticky='w')
+        
+
+        try:
+            with open('data.json', 'r') as data:
+                self.history = ChromaHistory(self.colorTileFrame, bg='#1c1c1c', highlightthickness=0, colorVar=self.hex_code, data=json.load(data)['history'])
+                self.history.grid(row=1, columnspan=2, sticky='ew')
+                self.clearHistory = tk.Button(self.colorTileFrame, text='Clear', bg='#1c1c1c', fg='white', font=('', 11), borderwidth=0, command=self.history.clear)
+                self.clearHistory.grid(row=0, column=1, sticky='e')
+                self.ChromaPalette = ChromaPalette(self.colorTileFrame, 2, 7, height=150, bg='#1c1c1c', highlightthickness=0, colorVar=self.hex_code)
+                self.ChromaPalette.grid(row=2, columnspan=2, sticky='ew')
+        except IOError:
+            self.history = ChromaHistory(self.colorTileFrame, bg='#1c1c1c', highlightthickness=0, colorVar=self.hex_code)
+            self.history.pack(fill='x', padx=10)
+            self.ChromaPalette = ChromaPalette(self.colorTileFrame, 2, 7, height=150, bg='#1c1c1c', highlightthickness=0, colorVar=self.hex_code)
+            self.ChromaPalette.pack(fill='x', padx=10)
         
         
         self.attribute_manager(self.attributes_frame.RGB, "R :", 0, self.r, (0, 255), RGBSlider, 'r', width=45, height=12, justify='right')
@@ -125,6 +144,9 @@ class ChromaQuest(tk.Toplevel):
         self.setGradient()
         self.update()
         
+        atexit.register(self.onExit)
+        
+    @TimeItAuto
     def attribute_manager(self, master, text, row, variable, limit, slider_class, mode, **kwargs):
         master.grid_columnconfigure([0,2], weight=1)
         master.grid_columnconfigure(1, weight=5)
@@ -136,6 +158,7 @@ class ChromaQuest(tk.Toplevel):
         spinbox = ChromaSpinBox(master, variable=variable, limit=limit, disableSteppers=True, bg='#181818', **kwargs)
         spinbox.grid(row=row, column=2, padx=(5, 10), sticky='e')
     
+    @TimeItAuto
     def hsv_to_rgb(self, h, s, v):
         i = int(h * 6.0) 
         f = (h * 6.0) - i  
@@ -149,8 +172,9 @@ class ChromaQuest(tk.Toplevel):
         if i == 2: return p, v, t
         if i == 3: return p, q, v
         if i == 4: return t, p, v
-        return v, p, q  # i == 5
+        return v, p, q 
 
+    @TimeItAuto
     def compute_color_cycle(self, size, inner_radius=0.65, outer_radius=0.8):
         center = size // 2
         self.pixels = np.zeros((size, size, 4), dtype=np.uint8)
@@ -166,6 +190,7 @@ class ChromaQuest(tk.Toplevel):
                     self.pixels[y, x] = [int(r * 255), int(g * 255), int(b * 255), 255]
         return Image.fromarray(self.pixels, "RGBA")
     
+    @TimeItAuto
     def compute_gradient(self, size):
         pixels = np.zeros((size, size, 3), dtype=np.uint8)
         lineS = np.linspace(0, 255, size)
@@ -179,7 +204,7 @@ class ChromaQuest(tk.Toplevel):
 
         return Image.fromarray(pixels, "RGB")
     
-    
+    @TimeItAuto
     def primary_col(self, event):
         dx, dy = event.x - self.center, event.y - self.center
         radius = math.sqrt(dx**2 + dy**2) / self.center
@@ -200,7 +225,9 @@ class ChromaQuest(tk.Toplevel):
         self.update()
         self.gradient = self.compute_gradient(136)
         self.gradient_img.paste(self.gradient)
+        if event.type == '4': self.history.add(self.colors.hex_code)
     
+    @TimeItAuto
     def secondary_col(self, event):
         if event.x < 82 or event.y < 82 or event.x >= 218 or event.y >= 218: return
         c_pos = self.colors_canvas.coords(self.gradient_pointer)
@@ -209,10 +236,13 @@ class ChromaQuest(tk.Toplevel):
         col = self.gradient.getpixel([event.x-82,event.y-82])
         self.colors.setRGB(*col[:3])
         self.update()
-        
+        if event.type == '4': self.history.add(self.colors.hex_code)
+    
+    @TimeItAuto
     def RGBA_Hex(self, RGBA):
         return "".join(val for val in [hex(value).removeprefix("0x") for value in RGBA[:-1]])
     
+    @TimeItAuto
     def setColorCycle(self):
         angle = (self.colors.hue * (math.pi - (-math.pi))) + (-math.pi)
         dx = 115 * math.cos(angle)
@@ -222,6 +252,7 @@ class ChromaQuest(tk.Toplevel):
         c_pos = self.colors_canvas.coords(self.color_cycle_pointer)
         self.colors_canvas.move(self.color_cycle_pointer, x-c_pos[0] , y-c_pos[1])
     
+    @TimeItAuto
     def setGradient(self, size = 136):
         x, y = self.colors.s * (size-1), (1 - self.colors.v)*(size - 1)
         c_pos = self.colors_canvas.coords(self.gradient_pointer)
@@ -230,6 +261,7 @@ class ChromaQuest(tk.Toplevel):
         self.gradient = self.compute_gradient(136)
         self.gradient_img.paste(self.gradient)
     
+    @TimeItAuto
     def update(self):
         self.action = "click"
         
@@ -247,11 +279,13 @@ class ChromaQuest(tk.Toplevel):
         # self.hsl.set(f"{self.colors.hsl}")
         
         self.action = None
-        
+    
+    @TimeItAuto
     def setPointers(self):
         self.setColorCycle()
         self.setGradient()
     
+    @TimeItAuto
     def entryCallback(self, caller):
         if not self.action:
             match caller:
@@ -269,9 +303,15 @@ class ChromaQuest(tk.Toplevel):
                     
             self.update()
             self.setColorCycle()
-            self.setGradient()      
-                    
-                    
+            self.setGradient()
+    
+    @TimeItAuto   
+    def onExit(self):
+        try:
+            with open('data.json', 'w') as data:
+                json.dump({'history':[color.hexCode for color in self.history.history]}, data)
+        except ValueError:       
+            print("uh.. something's wrong")
                
 class Main(tk.Tk):
     def __init__(self, **kwargs):
@@ -286,8 +326,8 @@ class Main(tk.Tk):
         
 
         
-    
             
 app = Main()
 
 app.mainloop()
+Chronos.PerfIT()
